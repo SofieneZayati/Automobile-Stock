@@ -1,5 +1,5 @@
+import { useMemo, useState, type JSX } from 'react'
 import { Filter, MoreHorizontal, PackagePlus, Search, SlidersHorizontal } from 'lucide-react'
-import { useMemo, useState } from 'react'
 import { parts } from '../data/mock'
 import { Language, localeFor, t } from '../i18n'
 import { formatTnd } from '../lib/money'

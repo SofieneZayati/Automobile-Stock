@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { Boxes, FileText, Gauge, Settings, Users } from 'lucide-react'
 import { Brand } from './Brand'
 import { Language, t } from '../i18n'

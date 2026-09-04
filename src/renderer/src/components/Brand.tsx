@@ -1,3 +1,5 @@
+import type { JSX } from 'react'
+
 export function Brand(): JSX.Element {
   return (
     <div className="brand">

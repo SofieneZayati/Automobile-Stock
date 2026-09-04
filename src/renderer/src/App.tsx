@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type JSX } from 'react'
 import { Sidebar, Page } from './components/Sidebar'
 import { Topbar } from './components/Topbar'
 import { Dashboard } from './pages/Dashboard'

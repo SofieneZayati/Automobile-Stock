@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { AlertTriangle, ArrowUpRight, Boxes, FilePlus2, PackagePlus, ReceiptText, ShoppingCart } from 'lucide-react'
 import { parts, recentInvoices } from '../data/mock'
 import { Language, localeFor, t } from '../i18n'
@@ -29,35 +30,19 @@ export function Dashboard({ lang, onNavigate }: Props): JSX.Element {
       <section className="stats-grid">
         <article className="stat-card">
           <div className="stat-icon"><Boxes size={20} /></div>
-          <div>
-            <span>Articles actifs</span>
-            <strong>1 284</strong>
-            <small>32 catégories</small>
-          </div>
+          <div><span>Articles actifs</span><strong>1 284</strong><small>32 catégories</small></div>
         </article>
         <article className="stat-card warning">
           <div className="stat-icon"><AlertTriangle size={20} /></div>
-          <div>
-            <span>{t(lang, 'lowStock')}</span>
-            <strong>12</strong>
-            <small>2 ruptures à traiter</small>
-          </div>
+          <div><span>{t(lang, 'lowStock')}</span><strong>12</strong><small>2 ruptures à traiter</small></div>
         </article>
         <article className="stat-card">
           <div className="stat-icon"><ReceiptText size={20} /></div>
-          <div>
-            <span>Factures aujourd'hui</span>
-            <strong>8</strong>
-            <small>Dernière à 18:42</small>
-          </div>
+          <div><span>Factures aujourd'hui</span><strong>8</strong><small>Dernière à 18:42</small></div>
         </article>
         <article className="stat-card accent">
           <div className="stat-icon"><ShoppingCart size={20} /></div>
-          <div>
-            <span>Ventes aujourd'hui</span>
-            <strong>{formatTnd(1248500, localeFor(lang))}</strong>
-            <small>+11,4% vs. hier</small>
-          </div>
+          <div><span>Ventes aujourd'hui</span><strong>{formatTnd(1248500, localeFor(lang))}</strong><small>+11,4% vs. hier</small></div>
         </article>
       </section>
 
@@ -82,10 +67,7 @@ export function Dashboard({ lang, onNavigate }: Props): JSX.Element {
       <section className="dashboard-grid">
         <div className="panel">
           <div className="panel-heading">
-            <div>
-              <h2>{t(lang, 'lowStock')}</h2>
-              <p>Articles sous leur seuil minimum.</p>
-            </div>
+            <div><h2>{t(lang, 'lowStock')}</h2><p>Articles sous leur seuil minimum.</p></div>
             <button className="text-button" type="button" onClick={() => onNavigate('stock')}>Voir tout</button>
           </div>
           <div className="table-wrap">
@@ -107,24 +89,15 @@ export function Dashboard({ lang, onNavigate }: Props): JSX.Element {
 
         <div className="panel">
           <div className="panel-heading">
-            <div>
-              <h2>{t(lang, 'recentInvoices')}</h2>
-              <p>Dernières opérations finalisées.</p>
-            </div>
+            <div><h2>{t(lang, 'recentInvoices')}</h2><p>Dernières opérations finalisées.</p></div>
             <button className="text-button" type="button" onClick={() => onNavigate('invoices')}>Historique</button>
           </div>
           <div className="invoice-list">
             {recentInvoices.map((invoice) => (
               <button className="invoice-row" type="button" key={invoice.number}>
                 <span className="invoice-icon"><ReceiptText size={18} /></span>
-                <span className="invoice-main">
-                  <strong>{invoice.number}</strong>
-                  <small>{invoice.customer} · {invoice.date}</small>
-                </span>
-                <span className="invoice-amount">
-                  <strong>{formatTnd(invoice.total, localeFor(lang))}</strong>
-                  <small>{invoice.status}</small>
-                </span>
+                <span className="invoice-main"><strong>{invoice.number}</strong><small>{invoice.customer} · {invoice.date}</small></span>
+                <span className="invoice-amount"><strong>{formatTnd(invoice.total, localeFor(lang))}</strong><small>{invoice.status}</small></span>
               </button>
             ))}
           </div>

@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { Bell, Search } from 'lucide-react'
 import { Language, t } from '../i18n'
 
