@@ -3,6 +3,7 @@ import { Sidebar, Page } from './components/Sidebar'
 import { Topbar } from './components/Topbar'
 import { Dashboard } from './pages/Dashboard'
 import { Invoices } from './pages/Invoices'
+import { InvoiceHistory } from './pages/InvoiceHistory'
 import { Stock } from './pages/Stock'
 import { Language } from './i18n'
 
@@ -33,6 +34,7 @@ export default function App(): JSX.Element {
           {page === 'dashboard' && <Dashboard lang={lang} onNavigate={setPage} />}
           {page === 'stock' && <Stock lang={lang} />}
           {page === 'invoices' && <Invoices lang={lang} />}
+          {page === 'invoiceHistory' && <InvoiceHistory lang={lang} onNavigate={setPage} />}
           {page === 'clients' && <Placeholder title="Clients" text="Fiches clients simples, historique des factures et recherche rapide." />}
           {page === 'settings' && <Placeholder title="Paramètres" text="Identité société, numérotation, fiscalité, imprimante, sauvegardes et langue." />}
         </div>

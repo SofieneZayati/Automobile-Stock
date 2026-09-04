@@ -3,7 +3,7 @@ import { Boxes, FileText, Gauge, Settings, Users } from 'lucide-react'
 import { Brand } from './Brand'
 import { Language, t } from '../i18n'
 
-export type Page = 'dashboard' | 'stock' | 'invoices' | 'clients' | 'settings'
+export type Page = 'dashboard' | 'stock' | 'invoices' | 'invoiceHistory' | 'clients' | 'settings'
 
 type Props = {
   page: Page
@@ -15,7 +15,7 @@ export function Sidebar({ page, lang, onNavigate }: Props): JSX.Element {
   const items = [
     { id: 'dashboard' as const, label: t(lang, 'dashboard'), icon: Gauge },
     { id: 'stock' as const, label: t(lang, 'stock'), icon: Boxes },
-    { id: 'invoices' as const, label: t(lang, 'invoices'), icon: FileText },
+    { id: 'invoiceHistory' as const, label: t(lang, 'invoices'), icon: FileText },
     { id: 'clients' as const, label: t(lang, 'clients'), icon: Users },
     { id: 'settings' as const, label: t(lang, 'settings'), icon: Settings }
   ]
@@ -28,7 +28,7 @@ export function Sidebar({ page, lang, onNavigate }: Props): JSX.Element {
           <button
             key={id}
             type="button"
-            className={page === id ? 'nav-item active' : 'nav-item'}
+            className={(page === id || (id === 'invoiceHistory' && page === 'invoices')) ? 'nav-item active' : 'nav-item'}
             onClick={() => onNavigate(id)}
           >
             <Icon size={19} strokeWidth={1.9} />

@@ -57,6 +57,17 @@ export type RecentInvoice = {
   totalTtcMillimes: number
 }
 
+export type InvoiceListItem = {
+  id: number
+  number: string
+  customerName: string
+  finalizedAt: string
+  subtotalHtMillimes: number
+  taxMillimes: number
+  totalTtcMillimes: number
+  lineCount: number
+}
+
 export type DashboardOverview = {
   summary: DashboardSummary
   lowStockParts: Part[]
@@ -121,5 +132,6 @@ export type DesktopApi = {
   invoices: {
     finalize: (input: FinalizeInvoiceInput) => Promise<FinalizedInvoice>
     get: (id: number) => Promise<FinalizedInvoice | null>
+    list: (query?: string) => Promise<InvoiceListItem[]>
   }
 }

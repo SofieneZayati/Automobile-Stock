@@ -111,12 +111,12 @@ export function Dashboard({ lang, onNavigate }: Props): JSX.Element {
         <div className="panel">
           <div className="panel-heading">
             <div><h2>{t(lang, 'recentInvoices')}</h2><p>Dernières opérations finalisées.</p></div>
-            <button className="text-button" type="button" onClick={() => onNavigate('invoices')}>Facturation</button>
+            <button className="text-button" type="button" onClick={() => onNavigate('invoiceHistory')}>Historique</button>
           </div>
           {overview && overview.recentInvoices.length > 0 ? (
             <div className="invoice-list">
               {overview.recentInvoices.map((invoice) => (
-                <button className="invoice-row" type="button" key={invoice.id} onClick={() => onNavigate('invoices')}>
+                <button className="invoice-row" type="button" key={invoice.id} onClick={() => onNavigate('invoiceHistory')}>
                   <span className="invoice-icon"><ReceiptText size={18} /></span>
                   <span className="invoice-main">
                     <strong>{invoice.number}</strong>

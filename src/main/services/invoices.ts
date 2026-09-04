@@ -4,7 +4,8 @@ import type {
   CreateInvoiceLineInput,
   FinalizedInvoice,
   FinalizedInvoiceLine,
-  FinalizeInvoiceInput
+  FinalizeInvoiceInput,
+  InvoiceListItem
 } from '../../shared/contracts'
 
 type CalculatedLine = FinalizedInvoiceLine & {
@@ -267,4 +268,53 @@ function requireNonNegativeInteger(value: number, field: string): number {
 function requirePercentage(value: number, field: string): number {
   if (!Number.isFinite(value) || value < 0 || value > 100) throw new Error(`${field} must be between 0 and 100`)
   return value
+}
+
+
+export function listInvoices(query = ''): InvoiceListItem[] {
+  const db = getDatabase()
+  const needle = query.trim()
+  const params = needle ? [`%${needle}%`, `%${needle}%`] : []
+
+  const sql = `
+    SELECT
+      i.id,
+      i.number,
+      i.customer_name,
+      i.finalized_at,
+      i.subtotal_ht_millimes,
+      i.tax_millimes,
+      i.total_ttc_millimes,
+      COUNT(il.id) AS line_count
+    FROM invoices i
+    LEFT JOIN invoice_lines il ON il.invoice_id = i.id
+    WHERE i.status = 'FINALIZED'
+      AND i.number IS NOT NULL
+      ${needle ? "AND (i.number LIKE ? COLLATE NOCASE OR i.customer_name LIKE ? COLLATE NOCASE)" : ""}
+    GROUP BY i.id
+    ORDER BY i.finalized_at DESC, i.id DESC
+    LIMIT 250
+  `
+
+  const rows = db.prepare(sql).all(...params) as Array<{
+    id: number
+    number: string
+    customer_name: string
+    finalized_at: string
+    subtotal_ht_millimes: number
+    tax_millimes: number
+    total_ttc_millimes: number
+    line_count: number
+  }>
+
+  return rows.map((row) => ({
+    id: row.id,
+    number: row.number,
+    customerName: row.customer_name,
+    finalizedAt: row.finalized_at,
+    subtotalHtMillimes: row.subtotal_ht_millimes,
+    taxMillimes: row.tax_millimes,
+    totalTtcMillimes: row.total_ttc_millimes,
+    lineCount: row.line_count
+  }))
 }

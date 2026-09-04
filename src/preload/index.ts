@@ -18,7 +18,8 @@ const api: DesktopApi = {
   },
   invoices: {
     finalize: (input: FinalizeInvoiceInput) => ipcRenderer.invoke('invoices:finalize', input),
-    get: (id: number) => ipcRenderer.invoke('invoices:get', id)
+    get: (id: number) => ipcRenderer.invoke('invoices:get', id),
+    list: (query = '') => ipcRenderer.invoke('invoices:list', query)
   }
 }
 

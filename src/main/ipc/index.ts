@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import { adjustStock, createPart, listParts } from '../repositories/parts'
 import { getDashboardOverview } from '../services/dashboard'
-import { finalizeInvoice, getInvoice } from '../services/invoices'
+import { finalizeInvoice, getInvoice, listInvoices } from '../services/invoices'
 import type { AdjustStockInput, CreatePartInput, FinalizeInvoiceInput } from '../../shared/contracts'
 
 export function registerIpcHandlers(): void {
@@ -13,4 +13,5 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('invoices:finalize', (_event, input: FinalizeInvoiceInput) => finalizeInvoice(input))
   ipcMain.handle('invoices:get', (_event, id: number) => getInvoice(id))
+  ipcMain.handle('invoices:list', (_event, query?: string) => listInvoices(typeof query === 'string' ? query : ''))
 }
