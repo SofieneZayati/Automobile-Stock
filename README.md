@@ -173,30 +173,30 @@ Invoice lines keep a snapshot of the designation/reference/unit price/tax/discou
 ### Phase 0 — Foundation
 - [x] Product/UX direction
 - [x] Architecture decision
-- [ ] Electron + React + TypeScript shell
-- [ ] design system
-- [ ] localization foundation
-- [ ] local development/build scripts
+- [x] Electron + React + TypeScript shell
+- [x] design system
+- [x] localization foundation
+- [x] local development/build scripts
 
 ### Phase 1 — Functional prototype
-- [ ] dashboard
-- [ ] parts list + part form
-- [ ] stock movements
-- [ ] invoice editor prototype
-- [ ] invoice print preview
+- [x] dashboard
+- [x] parts list + part form
+- [x] stock movements
+- [x] invoice editor prototype
+- [x] invoice print preview
 
 ### Phase 2 — Real local data
-- [ ] SQLite schema + migrations
+- [x] SQLite schema + migrations
 - [ ] CRUD services
-- [ ] invoice finalization transaction
-- [ ] stock decrement / movement ledger
+- [x] invoice finalization transaction
+- [x] stock decrement / movement ledger
 - [ ] settings persistence
 
 ### Phase 3 — Production workflow
 - [ ] clients and suppliers
 - [ ] search/filter polish
-- [ ] invoice history/reprint
-- [ ] backups/restores
+- [x] invoice history/reprint
+- [x] backups/restores
 - [ ] validation and error states
 - [ ] audit log
 
@@ -229,3 +229,29 @@ A polished desktop shell with:
 - language switch foundation.
 
 That milestone should make the visual and workflow direction obvious before database implementation is locked in.
+
+
+## Current implementation status — September 2026
+
+The application has moved beyond static UI mockups:
+
+- SQLite is now the real source of truth for parts, quantities, stock movements and finalized invoices.
+- Development mode seeds a small demonstration catalog; packaged production builds start without fake stock.
+- Adding a part and recording a stock entry/correction are connected to SQLite.
+- Invoice product search reads live stock.
+- Finalizing an invoice is transactional: stock is checked, a sequential number is assigned, immutable line snapshots are written and SALE movements decrement stock together.
+- Finalized invoices have a searchable history and can be reopened/reprinted.
+- Dashboard totals and low-stock warnings come from local data.
+- Manual SQLite backup and integrity-checked restore are available from Settings.
+- Language selection persists locally; French remains the default and Arabic still switches document direction to RTL.
+- A Windows-only GitHub workflow can build the portable EXE; real printer/portable-build testing remains a release task.
+- GitHub CI verifies install, TypeScript and Electron/Vite build on every push.
+
+### Still intentionally open before client delivery
+
+- Confirm fiscal/legal invoice fields with the client (matricule fiscal, HT/TTC convention, TVA rules and invoice numbering).
+- Make company/fiscal settings editable and use them everywhere instead of static defaults.
+- Finish part edit/archive and supplier/client workflows.
+- Add invoice draft persistence, cancellation/avoir rules if required, and stronger print tests for long multi-page invoices.
+- Test backup/restore with production-like data.
+- Run and validate the Windows portable artifact on the client's Windows machine and printer.
