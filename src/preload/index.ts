@@ -20,6 +20,10 @@ const api: DesktopApi = {
     finalize: (input: FinalizeInvoiceInput) => ipcRenderer.invoke('invoices:finalize', input),
     get: (id: number) => ipcRenderer.invoke('invoices:get', id),
     list: (query = '') => ipcRenderer.invoke('invoices:list', query)
+  },
+  backup: {
+    create: () => ipcRenderer.invoke('backup:create'),
+    restore: () => ipcRenderer.invoke('backup:restore')
   }
 }
 

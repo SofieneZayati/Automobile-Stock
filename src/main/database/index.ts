@@ -6,6 +6,10 @@ import { migrations } from './migrations'
 
 let database: DatabaseSync | null = null
 
+export function getDatabasePath(): string {
+  return join(app.getPath('userData'), 'automobile-stock.sqlite3')
+}
+
 export function getDatabase(): DatabaseSync {
   if (!database) throw new Error('Database has not been initialized')
   return database
@@ -16,7 +20,7 @@ export function initializeDatabase(): DatabaseSync {
 
   const dataDir = app.getPath('userData')
   mkdirSync(dataDir, { recursive: true })
-  const databasePath = join(dataDir, 'automobile-stock.sqlite3')
+  const databasePath = getDatabasePath()
 
   database = new DatabaseSync(databasePath)
   database.exec('PRAGMA foreign_keys = ON;')

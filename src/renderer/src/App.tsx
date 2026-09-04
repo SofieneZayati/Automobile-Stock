@@ -4,6 +4,7 @@ import { Topbar } from './components/Topbar'
 import { Dashboard } from './pages/Dashboard'
 import { Invoices } from './pages/Invoices'
 import { InvoiceHistory } from './pages/InvoiceHistory'
+import { Settings } from './pages/Settings'
 import { Stock } from './pages/Stock'
 import { Language } from './i18n'
 
@@ -18,11 +19,15 @@ function Placeholder({ title, text }: { title: string; text: string }): JSX.Elem
 
 export default function App(): JSX.Element {
   const [page, setPage] = useState<Page>('dashboard')
-  const [lang, setLang] = useState<Language>('fr')
+  const [lang, setLang] = useState<Language>(() => {
+    const stored = window.localStorage.getItem('ben-mahmoud-language')
+    return stored === 'en' || stored === 'ar' ? stored : 'fr'
+  })
 
   useEffect(() => {
     document.documentElement.lang = lang
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr'
+    window.localStorage.setItem('ben-mahmoud-language', lang)
   }, [lang])
 
   return (
@@ -36,7 +41,7 @@ export default function App(): JSX.Element {
           {page === 'invoices' && <Invoices lang={lang} />}
           {page === 'invoiceHistory' && <InvoiceHistory lang={lang} onNavigate={setPage} />}
           {page === 'clients' && <Placeholder title="Clients" text="Fiches clients simples, historique des factures et recherche rapide." />}
-          {page === 'settings' && <Placeholder title="Paramètres" text="Identité société, numérotation, fiscalité, imprimante, sauvegardes et langue." />}
+          {page === 'settings' && <Settings lang={lang} />}
         </div>
       </main>
     </div>

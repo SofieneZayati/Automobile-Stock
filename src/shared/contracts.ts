@@ -119,6 +119,15 @@ export type FinalizedInvoice = {
   lines: FinalizedInvoiceLine[]
 }
 
+export type BackupResult = {
+  path: string
+}
+
+export type RestoreResult = {
+  path: string
+  integrity: string
+}
+
 export type DesktopApi = {
   platform: string
   parts: {
@@ -133,5 +142,9 @@ export type DesktopApi = {
     finalize: (input: FinalizeInvoiceInput) => Promise<FinalizedInvoice>
     get: (id: number) => Promise<FinalizedInvoice | null>
     list: (query?: string) => Promise<InvoiceListItem[]>
+  }
+  backup: {
+    create: () => Promise<BackupResult | null>
+    restore: () => Promise<RestoreResult | null>
   }
 }

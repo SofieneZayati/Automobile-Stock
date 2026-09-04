@@ -1,0 +1,39 @@
+name: Windows Portable Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  portable:
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Verify
+        run: |
+          npm run typecheck
+          npm run build
+
+      - name: Build portable EXE
+        run: npm run dist:portable
+
+      - name: Upload portable app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ben-Mahmoud-Stock-Portable
+          path: release/*.exe
+          if-no-files-found: error
