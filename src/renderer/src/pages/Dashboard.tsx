@@ -1,9 +1,9 @@
-import type { JSX } from 'react'
+import { useCallback, useEffect, useState, type JSX } from 'react'
 import { AlertTriangle, ArrowUpRight, Boxes, FilePlus2, PackagePlus, ReceiptText, ShoppingCart } from 'lucide-react'
-import { parts, recentInvoices } from '../data/mock'
 import { Language, localeFor, t } from '../i18n'
 import { formatTnd } from '../lib/money'
 import { Page } from '../components/Sidebar'
+import type { DashboardOverview } from '../../../shared/contracts'
 
 type Props = {
   lang: Language
@@ -11,13 +11,29 @@ type Props = {
 }
 
 export function Dashboard({ lang, onNavigate }: Props): JSX.Element {
-  const lowStock = parts.filter((part) => part.qty <= part.threshold)
+  const [overview, setOverview] = useState<DashboardOverview | null>(null)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    try {
+      setError('')
+      setOverview(await window.desktop.dashboard.overview())
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de charger le tableau de bord.')
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const summary = overview?.summary
 
   return (
     <div className="page dashboard-page">
       <section className="page-heading">
         <div>
-          <span className="eyebrow">Jeudi, 4 septembre 2026</span>
+          <span className="eyebrow">{new Intl.DateTimeFormat(localeFor(lang), { dateStyle: 'full' }).format(new Date())}</span>
           <h1>{t(lang, 'overview')}</h1>
           <p>Votre activité, le stock et les factures importantes en un coup d'œil.</p>
         </div>
@@ -27,22 +43,24 @@ export function Dashboard({ lang, onNavigate }: Props): JSX.Element {
         </button>
       </section>
 
+      {error && <div className="inline-alert error">{error}<button type="button" onClick={() => void load()}>Réessayer</button></div>}
+
       <section className="stats-grid">
         <article className="stat-card">
           <div className="stat-icon"><Boxes size={20} /></div>
-          <div><span>Articles actifs</span><strong>1 284</strong><small>32 catégories</small></div>
+          <div><span>Articles actifs</span><strong>{summary?.activePartCount ?? '—'}</strong><small>Catalogue local</small></div>
         </article>
         <article className="stat-card warning">
           <div className="stat-icon"><AlertTriangle size={20} /></div>
-          <div><span>{t(lang, 'lowStock')}</span><strong>12</strong><small>2 ruptures à traiter</small></div>
+          <div><span>{t(lang, 'lowStock')}</span><strong>{summary?.lowStockCount ?? '—'}</strong><small>{summary ? `${summary.outOfStockCount} rupture(s)` : 'Chargement…'}</small></div>
         </article>
         <article className="stat-card">
           <div className="stat-icon"><ReceiptText size={20} /></div>
-          <div><span>Factures aujourd'hui</span><strong>8</strong><small>Dernière à 18:42</small></div>
+          <div><span>Factures aujourd'hui</span><strong>{summary?.todayInvoiceCount ?? '—'}</strong><small>Factures finalisées</small></div>
         </article>
         <article className="stat-card accent">
           <div className="stat-icon"><ShoppingCart size={20} /></div>
-          <div><span>Ventes aujourd'hui</span><strong>{formatTnd(1248500, localeFor(lang))}</strong><small>+11,4% vs. hier</small></div>
+          <div><span>Ventes aujourd'hui</span><strong>{summary ? formatTnd(summary.todaySalesMillimes, localeFor(lang)) : '—'}</strong><small>Données enregistrées localement</small></div>
         </article>
       </section>
 
@@ -70,37 +88,47 @@ export function Dashboard({ lang, onNavigate }: Props): JSX.Element {
             <div><h2>{t(lang, 'lowStock')}</h2><p>Articles sous leur seuil minimum.</p></div>
             <button className="text-button" type="button" onClick={() => onNavigate('stock')}>Voir tout</button>
           </div>
-          <div className="table-wrap">
-            <table className="data-table compact">
-              <thead><tr><th>Pièce</th><th>Emplacement</th><th>Stock</th><th></th></tr></thead>
-              <tbody>
-                {lowStock.map((part) => (
-                  <tr key={part.id}>
-                    <td><strong>{part.designation}</strong><span>{part.ref} · {part.vehicle}</span></td>
-                    <td><span className="location-pill">{part.location}</span></td>
-                    <td><span className="stock-danger">{part.qty} unité{part.qty > 1 ? 's' : ''}</span></td>
-                    <td><button className="row-action" type="button">Réapprovisionner</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {overview && overview.lowStockParts.length > 0 ? (
+            <div className="table-wrap">
+              <table className="data-table compact">
+                <thead><tr><th>Pièce</th><th>Emplacement</th><th>Stock</th></tr></thead>
+                <tbody>
+                  {overview.lowStockParts.map((part) => (
+                    <tr key={part.id}>
+                      <td><strong>{part.designation}</strong><span>{part.reference} · {part.vehicleCompatibility || 'Compatibilité non précisée'}</span></td>
+                      <td><span className="location-pill">{part.location || '—'}</span></td>
+                      <td><span className="stock-danger">{part.quantity} unité{part.quantity > 1 ? 's' : ''}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="panel-empty">{overview ? 'Aucun article sous le seuil.' : 'Chargement du stock…'}</div>
+          )}
         </div>
 
         <div className="panel">
           <div className="panel-heading">
             <div><h2>{t(lang, 'recentInvoices')}</h2><p>Dernières opérations finalisées.</p></div>
-            <button className="text-button" type="button" onClick={() => onNavigate('invoices')}>Historique</button>
+            <button className="text-button" type="button" onClick={() => onNavigate('invoices')}>Facturation</button>
           </div>
-          <div className="invoice-list">
-            {recentInvoices.map((invoice) => (
-              <button className="invoice-row" type="button" key={invoice.number}>
-                <span className="invoice-icon"><ReceiptText size={18} /></span>
-                <span className="invoice-main"><strong>{invoice.number}</strong><small>{invoice.customer} · {invoice.date}</small></span>
-                <span className="invoice-amount"><strong>{formatTnd(invoice.total, localeFor(lang))}</strong><small>{invoice.status}</small></span>
-              </button>
-            ))}
-          </div>
+          {overview && overview.recentInvoices.length > 0 ? (
+            <div className="invoice-list">
+              {overview.recentInvoices.map((invoice) => (
+                <button className="invoice-row" type="button" key={invoice.id} onClick={() => onNavigate('invoices')}>
+                  <span className="invoice-icon"><ReceiptText size={18} /></span>
+                  <span className="invoice-main">
+                    <strong>{invoice.number}</strong>
+                    <small>{invoice.customerName} · {new Date(invoice.finalizedAt + 'Z').toLocaleString(localeFor(lang))}</small>
+                  </span>
+                  <span className="invoice-amount"><strong>{formatTnd(invoice.totalTtcMillimes, localeFor(lang))}</strong><small>Finalisée</small></span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="panel-empty">{overview ? 'Aucune facture finalisée pour le moment.' : 'Chargement des factures…'}</div>
+          )}
         </div>
       </section>
     </div>

@@ -1,7 +1,11 @@
 /// <reference types="vite/client" />
 
-interface Window {
-  desktop?: {
-    platform: string
+import type { DesktopApi } from '../../shared/contracts'
+
+declare global {
+  interface Window {
+    desktop: DesktopApi
   }
 }
+
+export {}
