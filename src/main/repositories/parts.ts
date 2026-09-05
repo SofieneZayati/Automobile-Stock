@@ -1,6 +1,6 @@
 import { getDatabase } from '../database'
 import { inTransaction } from '../database/transaction'
-import type { AdjustStockInput, CreatePartInput, Part, UpdatePartInput } from '../../shared/contracts'
+import type { AdjustStockInput, CreatePartInput, Part, StockMovement, UpdatePartInput } from '../../shared/contracts'
 
 type PartRow = {
   id: number
@@ -261,6 +261,55 @@ export function adjustStock(input: AdjustStockInput): Part {
     if (!updated) throw new Error('Updated part could not be loaded')
     return updated
   })
+}
+
+export function listStockMovements(partIdValue: number): StockMovement[] {
+  const partId = requirePositiveInteger(partIdValue, 'partId')
+  const part = getPart(partId)
+  if (!part) throw new Error('Part not found')
+
+  const rows = getDatabase().prepare(`
+    SELECT
+      sm.id,
+      sm.part_id,
+      sm.movement_type,
+      sm.quantity_delta,
+      sm.quantity_before,
+      sm.quantity_after,
+      sm.invoice_id,
+      i.number AS invoice_number,
+      sm.note,
+      sm.created_at
+    FROM stock_movements sm
+    LEFT JOIN invoices i ON i.id = sm.invoice_id
+    WHERE sm.part_id = ?
+    ORDER BY sm.created_at DESC, sm.id DESC
+    LIMIT 500
+  `).all(partId) as Array<{
+    id: number
+    part_id: number
+    movement_type: StockMovement['movementType']
+    quantity_delta: number
+    quantity_before: number
+    quantity_after: number
+    invoice_id: number | null
+    invoice_number: string | null
+    note: string | null
+    created_at: string
+  }>
+
+  return rows.map((row) => ({
+    id: row.id,
+    partId: row.part_id,
+    movementType: row.movement_type,
+    quantityDelta: row.quantity_delta,
+    quantityBefore: row.quantity_before,
+    quantityAfter: row.quantity_after,
+    invoiceId: row.invoice_id,
+    invoiceNumber: row.invoice_number,
+    note: row.note,
+    createdAt: row.created_at
+  }))
 }
 
 export function getLowStockParts(limit = 8): Part[] {

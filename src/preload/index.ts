@@ -21,7 +21,8 @@ const api: DesktopApi = {
     update: (input: UpdatePartInput) => ipcRenderer.invoke('parts:update', input),
     setActive: (partId: number, isActive: boolean) =>
       ipcRenderer.invoke('parts:set-active', partId, isActive),
-    adjustStock: (input: AdjustStockInput) => ipcRenderer.invoke('parts:adjust-stock', input)
+    adjustStock: (input: AdjustStockInput) => ipcRenderer.invoke('parts:adjust-stock', input),
+    movements: (partId: number) => ipcRenderer.invoke('parts:movements', partId)
   },
   clients: {
     list: (query = '') => ipcRenderer.invoke('clients:list', query),

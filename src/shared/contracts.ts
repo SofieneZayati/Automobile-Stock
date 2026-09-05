@@ -112,6 +112,19 @@ export type UpdatePartInput = {
   notes?: string
 }
 
+export type StockMovement = {
+  id: number
+  partId: number
+  movementType: 'INITIAL' | 'PURCHASE' | 'SALE' | 'CORRECTION' | 'RETURN' | 'CANCELLATION' | 'OTHER'
+  quantityDelta: number
+  quantityBefore: number
+  quantityAfter: number
+  invoiceId: number | null
+  invoiceNumber: string | null
+  note: string | null
+  createdAt: string
+}
+
 export type AdjustStockInput = {
   partId: number
   delta: number
@@ -223,6 +236,7 @@ export type DesktopApi = {
     update: (input: UpdatePartInput) => Promise<Part>
     setActive: (partId: number, isActive: boolean) => Promise<Part>
     adjustStock: (input: AdjustStockInput) => Promise<Part>
+    movements: (partId: number) => Promise<StockMovement[]>
   }
   clients: {
     list: (query?: string) => Promise<Client[]>

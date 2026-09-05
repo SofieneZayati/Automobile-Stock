@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { adjustStock, createPart, listParts, setPartActive, updatePart } from '../repositories/parts'
+import { adjustStock, createPart, listParts, listStockMovements, setPartActive, updatePart } from '../repositories/parts'
 import { createClient, listClients, updateClient } from '../repositories/clients'
 import { createSupplier, listSuppliers, updateSupplier } from '../repositories/suppliers'
 import { getDashboardOverview } from '../services/dashboard'
@@ -18,6 +18,7 @@ export function registerIpcHandlers(): void {
     setPartActive(partId, isActive === true)
   )
   ipcMain.handle('parts:adjust-stock', (_event, input: AdjustStockInput) => adjustStock(input))
+  ipcMain.handle('parts:movements', (_event, partId: number) => listStockMovements(partId))
 
   ipcMain.handle('clients:list', (_event, query?: string) =>
     listClients(typeof query === 'string' ? query : '')

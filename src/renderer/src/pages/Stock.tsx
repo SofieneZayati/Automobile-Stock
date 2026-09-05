@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type JSX } from 'react'
-import { Archive, ArchiveRestore, PackagePlus, Pencil, PlusCircle, Search, X } from 'lucide-react'
+import { Archive, ArchiveRestore, History, PackagePlus, Pencil, PlusCircle, Search, X } from 'lucide-react'
 import { Language, localeFor, t } from '../i18n'
 import { formatTnd } from '../lib/money'
-import type { CreatePartInput, Part, Supplier, UpdatePartInput } from '../../../shared/contracts'
+import type { CreatePartInput, Part, StockMovement, Supplier, UpdatePartInput } from '../../../shared/contracts'
 
 export function Stock({ lang }: { lang: Language }): JSX.Element {
   const [query, setQuery] = useState('')
@@ -12,6 +12,7 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
   const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState<Part | null>(null)
   const [adjusting, setAdjusting] = useState<Part | null>(null)
+  const [historyPart, setHistoryPart] = useState<Part | null>(null)
   const [includeArchived, setIncludeArchived] = useState(false)
 
   const load = useCallback(async (search = query) => {
@@ -129,6 +130,14 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
                         <button
                           className="icon-button table-more"
                           type="button"
+                          onClick={() => setHistoryPart(part)}
+                          title="Historique des mouvements"
+                        >
+                          <History size={16} />
+                        </button>
+                        <button
+                          className="icon-button table-more"
+                          type="button"
                           onClick={() => setEditing(part)}
                           title="Modifier la fiche"
                         >
@@ -155,6 +164,7 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
 
       {showCreate && <CreatePartModal lang={lang} onClose={() => setShowCreate(false)} onCreated={async () => { setShowCreate(false); await load() }} />}
       {editing && <EditPartModal part={editing} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await load() }} />}
+      {historyPart && <MovementHistoryModal part={historyPart} lang={lang} onClose={() => setHistoryPart(null)} />}
       {adjusting && <AdjustStockModal part={adjusting} onClose={() => setAdjusting(null)} onSaved={async () => { setAdjusting(null); await load() }} />}
     </div>
   )
@@ -347,6 +357,128 @@ function AdjustStockModal({ part, onClose, onSaved }: { part: Part; onClose: () 
       </div>
     </div>
   )
+}
+
+function MovementHistoryModal({
+  part,
+  lang,
+  onClose
+}: {
+  part: Part
+  lang: Language
+  onClose: () => void
+}): JSX.Element {
+  const [movements, setMovements] = useState<StockMovement[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    void window.desktop.parts.movements(part.id)
+      .then((result) => {
+        if (active) setMovements(result)
+      })
+      .catch((cause) => {
+        if (active) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : 'Impossible de charger les mouvements.'
+          )
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [part.id])
+
+  return (
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <div className="modal-card wide movement-history-modal">
+        <div className="modal-heading">
+          <div>
+            <span className="eyebrow">{part.reference}</span>
+            <h2>Historique du stock</h2>
+            <p>
+              {part.designation} · Stock actuel: <strong>{part.quantity}</strong>
+            </p>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {error && <div className="inline-alert error">{error}</div>}
+
+        {loading ? (
+          <div className="panel-empty">Chargement…</div>
+        ) : movements.length === 0 ? (
+          <div className="panel-empty">Aucun mouvement enregistré.</div>
+        ) : (
+          <div className="movement-list">
+            {movements.map((movement) => (
+              <div className="movement-row" key={movement.id}>
+                <div className="movement-direction">
+                  <span className={movement.quantityDelta > 0 ? 'movement-plus' : 'movement-minus'}>
+                    {movement.quantityDelta > 0 ? '+' : ''}
+                    {movement.quantityDelta}
+                  </span>
+                </div>
+
+                <div className="movement-main">
+                  <strong>{movementLabel(movement.movementType)}</strong>
+                  <span>
+                    {movement.quantityBefore} → {movement.quantityAfter}
+                    {movement.invoiceNumber ? ` · Facture ${movement.invoiceNumber}` : ''}
+                  </span>
+                  {movement.note && <small>{movement.note}</small>}
+                </div>
+
+                <time>
+                  {formatMovementDate(movement.createdAt, localeFor(lang))}
+                </time>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button className="primary-button" type="button" onClick={onClose}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function movementLabel(type: StockMovement['movementType']): string {
+  switch (type) {
+    case 'INITIAL': return 'Stock initial'
+    case 'PURCHASE': return 'Entrée fournisseur'
+    case 'SALE': return 'Vente'
+    case 'CORRECTION': return 'Correction inventaire'
+    case 'RETURN': return 'Retour'
+    case 'CANCELLATION': return 'Annulation'
+    default: return 'Autre mouvement'
+  }
+}
+
+function formatMovementDate(value: string, locale: string): string {
+  const parsed = new Date(value.replace(' ', 'T') + 'Z')
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : parsed.toLocaleString(locale)
 }
 
 function SupplierSelect({
