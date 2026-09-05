@@ -33,6 +33,18 @@ jobs:
       - name: Build portable EXE
         run: npm run dist:portable
 
+      - name: Smoke test portable EXE
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path release -Filter "*.exe" | Select-Object -First 1
+          if (-not $exe) {
+            throw "Portable EXE was not produced."
+          }
+          & $exe.FullName --smoke-test
+          if ($LASTEXITCODE -ne 0) {
+            throw "Portable EXE smoke test failed with exit code $LASTEXITCODE."
+          }
+
       - name: Upload portable app
         uses: actions/upload-artifact@v4
         with:

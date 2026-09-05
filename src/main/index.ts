@@ -3,6 +3,8 @@ import { join } from 'node:path'
 import { closeDatabase, initializeDatabase } from './database'
 import { registerIpcHandlers } from './ipc'
 
+const smokeTest = process.argv.includes('--smoke-test')
+
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1440,
@@ -30,19 +32,36 @@ function createWindow(): void {
   if (process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
-    void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    void mainWindow.loadFile(
+      join(__dirname, '../renderer/index.html')
+    )
   }
 }
 
-app.whenReady().then(() => {
-  initializeDatabase()
-  registerIpcHandlers()
-  createWindow()
+app.whenReady()
+  .then(() => {
+    initializeDatabase()
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (smokeTest) {
+      closeDatabase()
+      app.exit(0)
+      return
+    }
+
+    registerIpcHandlers()
+    createWindow()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow()
+      }
+    })
   })
-})
+  .catch((error: unknown) => {
+    console.error('Application startup failed', error)
+    closeDatabase()
+    app.exit(1)
+  })
 
 app.on('before-quit', () => {
   closeDatabase()
