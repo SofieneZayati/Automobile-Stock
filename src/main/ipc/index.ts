@@ -3,7 +3,7 @@ import { adjustStock, createPart, listParts, listStockMovements, setPartActive, 
 import { createClient, listClients, updateClient } from '../repositories/clients'
 import { createSupplier, listSuppliers, updateSupplier } from '../repositories/suppliers'
 import { getDashboardOverview } from '../services/dashboard'
-import { finalizeInvoice, getInvoice, listInvoices } from '../services/invoices'
+import { deleteInvoiceDraft, finalizeInvoice, getInvoice, getInvoiceDraft, listInvoiceDrafts, listInvoices, saveInvoiceDraft } from '../services/invoices'
 import { createBackup, restoreBackup } from '../services/backup'
 import { getBusinessSettings, updateBusinessSettings } from '../services/settings'
 import type { AdjustStockInput, BusinessSettings, CreateClientInput, CreatePartInput, CreateSupplierInput, FinalizeInvoiceInput, UpdateClientInput, UpdatePartInput, UpdateSupplierInput } from '../../shared/contracts'
@@ -37,6 +37,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('invoices:finalize', (_event, input: FinalizeInvoiceInput) => finalizeInvoice(input))
   ipcMain.handle('invoices:get', (_event, id: number) => getInvoice(id))
   ipcMain.handle('invoices:list', (_event, query?: string) => listInvoices(typeof query === 'string' ? query : ''))
+  ipcMain.handle('invoices:draft-save', (_event, input: FinalizeInvoiceInput, draftId?: number) =>
+    saveInvoiceDraft(input, draftId)
+  )
+  ipcMain.handle('invoices:draft-get', (_event, id: number) => getInvoiceDraft(id))
+  ipcMain.handle('invoices:draft-list', () => listInvoiceDrafts())
+  ipcMain.handle('invoices:draft-delete', (_event, id: number) => deleteInvoiceDraft(id))
 
   ipcMain.handle('backup:create', () => createBackup())
   ipcMain.handle('backup:restore', () => restoreBackup())

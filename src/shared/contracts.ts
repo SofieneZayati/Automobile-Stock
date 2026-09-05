@@ -148,6 +148,45 @@ export type RecentInvoice = {
   totalTtcMillimes: number
 }
 
+export type InvoiceDraftListItem = {
+  id: number
+  customerName: string
+  updatedAt: string
+  totalTtcMillimes: number
+  lineCount: number
+}
+
+export type InvoiceDraftLine = {
+  partId: number | null
+  reference: string
+  designation: string
+  quantity: number
+  unitPriceHtMillimes: number
+  negotiatedUnitPriceHtMillimes: number
+  taxPercent: number
+  currentStock: number | null
+  currentPartActive: boolean
+}
+
+export type InvoiceDraft = {
+  id: number
+  clientId: number | null
+  customerName: string
+  customerAddress: string | null
+  customerTaxId: string | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+  subtotalHtMillimes: number
+  discountMillimes: number
+  globalDiscountTtcMillimes: number
+  taxMillimes: number
+  totalBeforeGlobalDiscountTtcMillimes: number
+  totalTtcMillimes: number
+  business: BusinessSettings
+  lines: InvoiceDraftLine[]
+}
+
 export type InvoiceListItem = {
   id: number
   number: string
@@ -177,6 +216,7 @@ export type CreateInvoiceLineInput = {
 }
 
 export type FinalizeInvoiceInput = {
+  draftId?: number
   clientId?: number
   customerName?: string
   customerAddress?: string
@@ -256,6 +296,10 @@ export type DesktopApi = {
     finalize: (input: FinalizeInvoiceInput) => Promise<FinalizedInvoice>
     get: (id: number) => Promise<FinalizedInvoice | null>
     list: (query?: string) => Promise<InvoiceListItem[]>
+    saveDraft: (input: FinalizeInvoiceInput, draftId?: number) => Promise<InvoiceDraft>
+    getDraft: (id: number) => Promise<InvoiceDraft | null>
+    listDrafts: () => Promise<InvoiceDraftListItem[]>
+    deleteDraft: (id: number) => Promise<boolean>
   }
   backup: {
     create: () => Promise<BackupResult | null>

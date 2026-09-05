@@ -10,6 +10,9 @@ import type {
   FinalizedInvoice,
   FinalizedInvoiceLine,
   FinalizeInvoiceInput,
+  InvoiceDraft,
+  InvoiceDraftLine,
+  InvoiceDraftListItem,
   InvoiceListItem
 } from '../../shared/contracts'
 
@@ -18,6 +21,23 @@ type CalculatedLine = FinalizedInvoiceLine & {
   discountPercent: number
 }
 
+type CalculatedInvoice = {
+  lines: CalculatedLine[]
+  subtotalHtMillimes: number
+  discountMillimes: number
+  taxMillimes: number
+  totalBeforeGlobalDiscountTtcMillimes: number
+  globalDiscountTtcMillimes: number
+  totalTtcMillimes: number
+}
+
+type ResolvedClient = {
+  id: number
+  name: string
+  address: string | null
+  tax_id: string | null
+} | null
+
 export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
   const db = getDatabase()
   if (!Array.isArray(input.lines) || input.lines.length === 0) {
@@ -25,34 +45,14 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
   }
 
   const business = getBusinessSettings()
-  const calculated = input.lines.map((line) =>
-    calculateLine(line, business.defaultTaxPercent)
-  )
-  const subtotalHtMillimes = calculated.reduce(
-    (sum, line) => sum + line.lineHtMillimes + line.discountMillimes,
-    0
-  )
-  const discountMillimes = calculated.reduce(
-    (sum, line) => sum + line.discountMillimes,
-    0
-  )
-  const taxMillimes = calculated.reduce(
-    (sum, line) => sum + line.taxMillimes,
-    0
-  )
-  const totalBeforeGlobalDiscountTtcMillimes = calculated.reduce(
-    (sum, line) => sum + line.lineTtcMillimes,
-    0
-  )
-  const globalDiscountTtcMillimes = resolveGlobalDiscount(
-    input,
-    totalBeforeGlobalDiscountTtcMillimes
-  )
-  const totalTtcMillimes =
-    totalBeforeGlobalDiscountTtcMillimes - globalDiscountTtcMillimes
+  const calculated = calculateInvoice(input, business)
 
   return inTransaction(db, () => {
-    for (const line of calculated) {
+    if (input.draftId !== undefined) {
+      requireDraft(input.draftId)
+    }
+
+    for (const line of calculated.lines) {
       if (!line.partId) continue
 
       const stock = db.prepare(
@@ -73,48 +73,35 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
 
     const number = nextInvoiceNumber(business)
     const selectedClient = resolveClient(input.clientId)
-    const customerName =
-      selectedClient?.name
-      ?? cleanText(input.customerName)
-      ?? business.defaultCustomerName
-    const customerAddress =
-      selectedClient?.address
-      ?? cleanText(input.customerAddress)
-    const customerTaxId =
-      selectedClient?.tax_id
-      ?? cleanText(input.customerTaxId)
+    const customer = resolveCustomer(input, business, selectedClient)
 
     const invoiceResult = db.prepare(`
       INSERT INTO invoices(
         number, status, client_id, customer_name, customer_address, customer_tax_id,
         subtotal_ht_millimes, discount_millimes, global_discount_ttc_millimes,
         tax_millimes, total_ttc_millimes, notes, business_snapshot_json,
-        finalized_at
-      ) VALUES (?, 'FINALIZED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        updated_at, finalized_at
+      ) VALUES (
+        ?, 'FINALIZED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        datetime('now'), datetime('now')
+      )
     `).run(
       number,
       selectedClient?.id ?? null,
-      customerName,
-      customerAddress,
-      customerTaxId,
-      subtotalHtMillimes,
-      discountMillimes,
-      globalDiscountTtcMillimes,
-      taxMillimes,
-      totalTtcMillimes,
+      customer.name,
+      customer.address,
+      customer.taxId,
+      calculated.subtotalHtMillimes,
+      calculated.discountMillimes,
+      calculated.globalDiscountTtcMillimes,
+      calculated.taxMillimes,
+      calculated.totalTtcMillimes,
       cleanText(input.notes),
       JSON.stringify(business)
     )
 
     const invoiceId = Number(invoiceResult.lastInsertRowid)
-
-    const lineStmt = db.prepare(`
-      INSERT INTO invoice_lines(
-        invoice_id, part_id, reference_snapshot, designation_snapshot, quantity,
-        unit_price_ht_millimes, discount_percent, discount_millimes, tax_percent,
-        line_ht_millimes, tax_millimes, line_ttc_millimes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
+    insertInvoiceLines(invoiceId, calculated.lines)
 
     const stockUpdate = db.prepare(`
       UPDATE parts
@@ -129,45 +116,35 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
       ) VALUES (?, 'SALE', ?, ?, ?, ?, ?)
     `)
 
-    for (const line of calculated) {
-      lineStmt.run(
-        invoiceId,
-        line.partId,
-        line.reference,
-        line.designation,
+    for (const line of calculated.lines) {
+      if (!line.partId) continue
+
+      const beforeRow = db.prepare(
+        'SELECT quantity FROM parts WHERE id = ?'
+      ).get(line.partId) as { quantity: number }
+      const before = beforeRow.quantity
+      const result = stockUpdate.run(
         line.quantity,
-        line.unitPriceHtMillimes,
-        line.discountPercent,
-        line.discountMillimes,
-        line.taxPercent,
-        line.lineHtMillimes,
-        line.taxMillimes,
-        line.lineTtcMillimes
+        line.partId,
+        line.quantity
       )
 
-      if (line.partId) {
-        const beforeRow = db.prepare(
-          'SELECT quantity FROM parts WHERE id = ?'
-        ).get(line.partId) as { quantity: number }
-        const before = beforeRow.quantity
-        const result = stockUpdate.run(
-          line.quantity,
-          line.partId,
-          line.quantity
-        )
-        if (result.changes !== 1) {
-          throw new Error(`Stock changed while finalizing ${line.reference}`)
-        }
-
-        movementInsert.run(
-          line.partId,
-          -line.quantity,
-          before,
-          before - line.quantity,
-          invoiceId,
-          `Facture ${number}`
-        )
+      if (result.changes !== 1) {
+        throw new Error(`Stock changed while finalizing ${line.reference}`)
       }
+
+      movementInsert.run(
+        line.partId,
+        -line.quantity,
+        before,
+        before - line.quantity,
+        invoiceId,
+        `Facture ${number}`
+      )
+    }
+
+    if (input.draftId !== undefined) {
+      consumeDraft(input.draftId)
     }
 
     db.prepare(`
@@ -177,10 +154,11 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
       invoiceId,
       JSON.stringify({
         number,
-        lineDiscountMillimes: discountMillimes,
-        globalDiscountTtcMillimes,
-        totalTtcMillimes,
-        lineCount: calculated.length,
+        sourceDraftId: input.draftId ?? null,
+        lineDiscountMillimes: calculated.discountMillimes,
+        globalDiscountTtcMillimes: calculated.globalDiscountTtcMillimes,
+        totalTtcMillimes: calculated.totalTtcMillimes,
+        lineCount: calculated.lines.length,
         defaultTaxPercent: business.defaultTaxPercent
       })
     )
@@ -188,6 +166,242 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
     const finalized = getInvoice(invoiceId)
     if (!finalized) throw new Error('Finalized invoice could not be loaded')
     return finalized
+  })
+}
+
+export function saveInvoiceDraft(
+  input: FinalizeInvoiceInput,
+  draftId?: number
+): InvoiceDraft {
+  const db = getDatabase()
+  if (!Array.isArray(input.lines) || input.lines.length === 0) {
+    throw new Error('Draft must contain at least one line')
+  }
+
+  const business = getBusinessSettings()
+  const calculated = calculateInvoice(input, business)
+  const selectedClient = resolveClient(input.clientId)
+  const customer = resolveCustomer(input, business, selectedClient)
+
+  return inTransaction(db, () => {
+    let id: number
+
+    if (draftId !== undefined) {
+      requireDraft(draftId)
+
+      const result = db.prepare(`
+        UPDATE invoices
+        SET
+          client_id = ?,
+          customer_name = ?,
+          customer_address = ?,
+          customer_tax_id = ?,
+          subtotal_ht_millimes = ?,
+          discount_millimes = ?,
+          global_discount_ttc_millimes = ?,
+          tax_millimes = ?,
+          total_ttc_millimes = ?,
+          notes = ?,
+          business_snapshot_json = ?,
+          updated_at = datetime('now')
+        WHERE id = ? AND status = 'DRAFT'
+      `).run(
+        selectedClient?.id ?? null,
+        customer.name,
+        customer.address,
+        customer.taxId,
+        calculated.subtotalHtMillimes,
+        calculated.discountMillimes,
+        calculated.globalDiscountTtcMillimes,
+        calculated.taxMillimes,
+        calculated.totalTtcMillimes,
+        cleanText(input.notes),
+        JSON.stringify(business),
+        draftId
+      )
+
+      if (result.changes !== 1) {
+        throw new Error('Draft could not be updated')
+      }
+
+      db.prepare('DELETE FROM invoice_lines WHERE invoice_id = ?').run(draftId)
+      id = draftId
+    } else {
+      const result = db.prepare(`
+        INSERT INTO invoices(
+          status, client_id, customer_name, customer_address, customer_tax_id,
+          subtotal_ht_millimes, discount_millimes, global_discount_ttc_millimes,
+          tax_millimes, total_ttc_millimes, notes, business_snapshot_json,
+          updated_at
+        ) VALUES (
+          'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now')
+        )
+      `).run(
+        selectedClient?.id ?? null,
+        customer.name,
+        customer.address,
+        customer.taxId,
+        calculated.subtotalHtMillimes,
+        calculated.discountMillimes,
+        calculated.globalDiscountTtcMillimes,
+        calculated.taxMillimes,
+        calculated.totalTtcMillimes,
+        cleanText(input.notes),
+        JSON.stringify(business)
+      )
+      id = Number(result.lastInsertRowid)
+    }
+
+    insertInvoiceLines(id, calculated.lines)
+
+    db.prepare(`
+      INSERT INTO audit_log(entity_type, entity_id, action, details_json)
+      VALUES ('invoice', ?, 'SAVE_DRAFT', ?)
+    `).run(
+      id,
+      JSON.stringify({
+        lineCount: calculated.lines.length,
+        totalTtcMillimes: calculated.totalTtcMillimes
+      })
+    )
+
+    const saved = getInvoiceDraft(id)
+    if (!saved) throw new Error('Saved draft could not be loaded')
+    return saved
+  })
+}
+
+export function getInvoiceDraft(id: number): InvoiceDraft | null {
+  if (!Number.isInteger(id) || id <= 0) return null
+  const db = getDatabase()
+
+  const invoice = db.prepare(`
+    SELECT
+      id, client_id, customer_name, customer_address, customer_tax_id, notes,
+      created_at, COALESCE(updated_at, created_at) AS updated_at,
+      subtotal_ht_millimes, discount_millimes, global_discount_ttc_millimes,
+      tax_millimes, total_ttc_millimes, business_snapshot_json
+    FROM invoices
+    WHERE id = ? AND status = 'DRAFT'
+  `).get(id) as {
+    id: number
+    client_id: number | null
+    customer_name: string
+    customer_address: string | null
+    customer_tax_id: string | null
+    notes: string | null
+    created_at: string
+    updated_at: string
+    subtotal_ht_millimes: number
+    discount_millimes: number
+    global_discount_ttc_millimes: number
+    tax_millimes: number
+    total_ttc_millimes: number
+    business_snapshot_json: string | null
+  } | undefined
+
+  if (!invoice) return null
+
+  const rows = db.prepare(`
+    SELECT
+      il.part_id,
+      il.reference_snapshot,
+      il.designation_snapshot,
+      il.quantity,
+      il.unit_price_ht_millimes,
+      il.discount_millimes,
+      il.tax_percent,
+      p.quantity AS current_stock,
+      COALESCE(p.is_active, 0) AS current_part_active
+    FROM invoice_lines il
+    LEFT JOIN parts p ON p.id = il.part_id
+    WHERE il.invoice_id = ?
+    ORDER BY il.id
+  `).all(id) as Array<{
+    part_id: number | null
+    reference_snapshot: string
+    designation_snapshot: string
+    quantity: number
+    unit_price_ht_millimes: number
+    discount_millimes: number
+    tax_percent: number
+    current_stock: number | null
+    current_part_active: number
+  }>
+
+  return {
+    id: invoice.id,
+    clientId: invoice.client_id,
+    customerName: invoice.customer_name,
+    customerAddress: invoice.customer_address,
+    customerTaxId: invoice.customer_tax_id,
+    notes: invoice.notes,
+    createdAt: invoice.created_at,
+    updatedAt: invoice.updated_at,
+    subtotalHtMillimes: invoice.subtotal_ht_millimes,
+    discountMillimes: invoice.discount_millimes,
+    globalDiscountTtcMillimes: invoice.global_discount_ttc_millimes,
+    taxMillimes: invoice.tax_millimes,
+    totalBeforeGlobalDiscountTtcMillimes:
+      invoice.total_ttc_millimes + invoice.global_discount_ttc_millimes,
+    totalTtcMillimes: invoice.total_ttc_millimes,
+    business: parseBusinessSnapshot(invoice.business_snapshot_json),
+    lines: rows.map(mapDraftLine)
+  }
+}
+
+export function listInvoiceDrafts(): InvoiceDraftListItem[] {
+  const rows = getDatabase().prepare(`
+    SELECT
+      i.id,
+      i.customer_name,
+      COALESCE(i.updated_at, i.created_at) AS updated_at,
+      i.total_ttc_millimes,
+      COUNT(il.id) AS line_count
+    FROM invoices i
+    LEFT JOIN invoice_lines il ON il.invoice_id = i.id
+    WHERE i.status = 'DRAFT'
+    GROUP BY i.id
+    ORDER BY COALESCE(i.updated_at, i.created_at) DESC, i.id DESC
+    LIMIT 100
+  `).all() as Array<{
+    id: number
+    customer_name: string
+    updated_at: string
+    total_ttc_millimes: number
+    line_count: number
+  }>
+
+  return rows.map((row) => ({
+    id: row.id,
+    customerName: row.customer_name,
+    updatedAt: row.updated_at,
+    totalTtcMillimes: row.total_ttc_millimes,
+    lineCount: row.line_count
+  }))
+}
+
+export function deleteInvoiceDraft(id: number): boolean {
+  if (!Number.isInteger(id) || id <= 0) return false
+  const db = getDatabase()
+
+  return inTransaction(db, () => {
+    const row = db.prepare(
+      "SELECT id FROM invoices WHERE id = ? AND status = 'DRAFT'"
+    ).get(id)
+    if (!row) return false
+
+    db.prepare('DELETE FROM invoice_lines WHERE invoice_id = ?').run(id)
+    const result = db.prepare(
+      "DELETE FROM invoices WHERE id = ? AND status = 'DRAFT'"
+    ).run(id)
+
+    db.prepare(`
+      INSERT INTO audit_log(entity_type, entity_id, action, details_json)
+      VALUES ('invoice', ?, 'DELETE_DRAFT', NULL)
+    `).run(id)
+
+    return result.changes === 1
   })
 }
 
@@ -329,28 +543,157 @@ export function listInvoices(query = ''): InvoiceListItem[] {
   }))
 }
 
-function resolveClient(clientId?: number): {
-  id: number
+function calculateInvoice(
+  input: FinalizeInvoiceInput,
+  business: BusinessSettings
+): CalculatedInvoice {
+  const lines = input.lines.map((line) =>
+    calculateLine(line, business.defaultTaxPercent)
+  )
+  const subtotalHtMillimes = lines.reduce(
+    (sum, line) => sum + line.lineHtMillimes + line.discountMillimes,
+    0
+  )
+  const discountMillimes = lines.reduce(
+    (sum, line) => sum + line.discountMillimes,
+    0
+  )
+  const taxMillimes = lines.reduce(
+    (sum, line) => sum + line.taxMillimes,
+    0
+  )
+  const totalBeforeGlobalDiscountTtcMillimes = lines.reduce(
+    (sum, line) => sum + line.lineTtcMillimes,
+    0
+  )
+  const globalDiscountTtcMillimes = resolveGlobalDiscount(
+    input,
+    totalBeforeGlobalDiscountTtcMillimes
+  )
+
+  return {
+    lines,
+    subtotalHtMillimes,
+    discountMillimes,
+    taxMillimes,
+    totalBeforeGlobalDiscountTtcMillimes,
+    globalDiscountTtcMillimes,
+    totalTtcMillimes:
+      totalBeforeGlobalDiscountTtcMillimes - globalDiscountTtcMillimes
+  }
+}
+
+function insertInvoiceLines(
+  invoiceId: number,
+  lines: CalculatedLine[]
+): void {
+  const stmt = getDatabase().prepare(`
+    INSERT INTO invoice_lines(
+      invoice_id, part_id, reference_snapshot, designation_snapshot, quantity,
+      unit_price_ht_millimes, discount_percent, discount_millimes, tax_percent,
+      line_ht_millimes, tax_millimes, line_ttc_millimes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  for (const line of lines) {
+    stmt.run(
+      invoiceId,
+      line.partId,
+      line.reference,
+      line.designation,
+      line.quantity,
+      line.unitPriceHtMillimes,
+      line.discountPercent,
+      line.discountMillimes,
+      line.taxPercent,
+      line.lineHtMillimes,
+      line.taxMillimes,
+      line.lineTtcMillimes
+    )
+  }
+}
+
+function mapDraftLine(row: {
+  part_id: number | null
+  reference_snapshot: string
+  designation_snapshot: string
+  quantity: number
+  unit_price_ht_millimes: number
+  discount_millimes: number
+  tax_percent: number
+  current_stock: number | null
+  current_part_active: number
+}): InvoiceDraftLine {
+  const gross = row.unit_price_ht_millimes * row.quantity
+  const net = gross - row.discount_millimes
+
+  return {
+    partId: row.part_id,
+    reference: row.reference_snapshot,
+    designation: row.designation_snapshot,
+    quantity: row.quantity,
+    unitPriceHtMillimes: row.unit_price_ht_millimes,
+    negotiatedUnitPriceHtMillimes:
+      Math.round(net / row.quantity),
+    taxPercent: row.tax_percent,
+    currentStock: row.current_stock,
+    currentPartActive: row.current_part_active === 1
+  }
+}
+
+function requireDraft(id: number): void {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error('Invalid draft id')
+  }
+
+  const row = getDatabase().prepare(
+    "SELECT id FROM invoices WHERE id = ? AND status = 'DRAFT'"
+  ).get(id)
+
+  if (!row) throw new Error('Draft not found')
+}
+
+function consumeDraft(id: number): void {
+  requireDraft(id)
+  const db = getDatabase()
+  db.prepare('DELETE FROM invoice_lines WHERE invoice_id = ?').run(id)
+  db.prepare("DELETE FROM invoices WHERE id = ? AND status = 'DRAFT'").run(id)
+}
+
+function resolveCustomer(
+  input: FinalizeInvoiceInput,
+  business: BusinessSettings,
+  selectedClient: ResolvedClient
+): {
   name: string
   address: string | null
-  tax_id: string | null
-} | null {
+  taxId: string | null
+} {
+  return {
+    name:
+      selectedClient?.name
+      ?? cleanText(input.customerName)
+      ?? business.defaultCustomerName,
+    address:
+      selectedClient?.address
+      ?? cleanText(input.customerAddress),
+    taxId:
+      selectedClient?.tax_id
+      ?? cleanText(input.customerTaxId)
+  }
+}
+
+function resolveClient(clientId?: number): ResolvedClient {
   if (clientId === undefined || clientId === null) return null
   if (!Number.isInteger(clientId) || clientId <= 0) {
     throw new Error('Invalid client id')
   }
 
-  const db = getDatabase()
-  const row = db.prepare(`
+  const row = getDatabase().prepare(`
     SELECT id, name, address, tax_id
     FROM clients
     WHERE id = ?
-  `).get(clientId) as {
-    id: number
-    name: string
-    address: string | null
-    tax_id: string | null
-  } | undefined
+  `).get(clientId) as ResolvedClient | undefined
 
   if (!row) throw new Error('Client not found')
   return row

@@ -951,3 +951,111 @@ button:disabled { cursor: not-allowed; opacity: .58; }
     text-align: start;
   }
 }
+
+
+/* Saved invoice drafts */
+.saved-drafts-panel {
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.saved-drafts-heading {
+  min-height: 54px;
+  padding: 11px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.saved-drafts-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.saved-drafts-heading strong {
+  font-size: 11.5px;
+}
+.saved-drafts-heading > span {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--brand-100);
+  color: var(--brand-800);
+  font-size: 9px;
+  font-weight: 900;
+}
+.saved-drafts-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 11px;
+}
+.saved-draft {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: white;
+}
+.saved-draft.active {
+  border-color: #a9c3da;
+  background: #f7fbff;
+  box-shadow: inset 0 0 0 1px rgba(31, 96, 157, .06);
+}
+.saved-draft-open {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px;
+  text-align: start;
+  cursor: pointer;
+}
+.saved-draft-open > svg {
+  color: var(--brand-700);
+}
+.saved-draft-open > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.saved-draft-open strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+.saved-draft-open small {
+  color: var(--ink-500);
+  font-size: 8.5px;
+}
+.saved-draft-open b {
+  color: var(--brand-900);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+.saved-draft .danger-button {
+  align-self: center;
+}
+
+@media (max-width: 1100px) {
+  .saved-drafts-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .saved-drafts-list {
+    grid-template-columns: 1fr;
+  }
+}

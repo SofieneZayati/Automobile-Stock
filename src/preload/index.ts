@@ -40,7 +40,12 @@ const api: DesktopApi = {
   invoices: {
     finalize: (input: FinalizeInvoiceInput) => ipcRenderer.invoke('invoices:finalize', input),
     get: (id: number) => ipcRenderer.invoke('invoices:get', id),
-    list: (query = '') => ipcRenderer.invoke('invoices:list', query)
+    list: (query = '') => ipcRenderer.invoke('invoices:list', query),
+    saveDraft: (input: FinalizeInvoiceInput, draftId?: number) =>
+      ipcRenderer.invoke('invoices:draft-save', input, draftId),
+    getDraft: (id: number) => ipcRenderer.invoke('invoices:draft-get', id),
+    listDrafts: () => ipcRenderer.invoke('invoices:draft-list'),
+    deleteDraft: (id: number) => ipcRenderer.invoke('invoices:draft-delete', id)
   },
   backup: {
     create: () => ipcRenderer.invoke('backup:create'),

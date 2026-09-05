@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type JSX } from 'react'
 import {
   CheckCircle2,
+  FilePenLine,
   FileText,
   Percent,
   Plus,
@@ -11,7 +12,14 @@ import {
   Trash2,
   X
 } from 'lucide-react'
-import type { BusinessSettings, Client, FinalizedInvoice, Part } from '../../../shared/contracts'
+import type {
+  BusinessSettings,
+  Client,
+  FinalizedInvoice,
+  FinalizeInvoiceInput,
+  InvoiceDraftListItem,
+  Part
+} from '../../../shared/contracts'
 import { Language, localeFor, t } from '../i18n'
 import { formatTnd, percentageAmount } from '../lib/money'
 
@@ -24,6 +32,7 @@ type DraftLine = {
   qty: number
   listUnitPriceMillimes: number
   clientUnitPriceText: string
+  taxPercent?: number
 }
 
 type AdjustmentMode = 'discount' | 'target'
@@ -48,6 +57,12 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
   const [showPicker, setShowPicker] = useState(false)
   const [showClientPicker, setShowClientPicker] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [customerAddress, setCustomerAddress] = useState('')
+  const [customerTaxId, setCustomerTaxId] = useState('')
+  const [draftId, setDraftId] = useState<number | null>(null)
+  const [drafts, setDrafts] = useState<InvoiceDraftListItem[]>([])
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [draftNotice, setDraftNotice] = useState('')
   const [finalized, setFinalized] = useState<FinalizedInvoice | null>(null)
   const [finalizing, setFinalizing] = useState(false)
   const [error, setError] = useState('')
@@ -77,6 +92,27 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
         }
       })
     return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    void window.desktop.invoices.listDrafts()
+      .then((result) => {
+        if (active) setDrafts(result)
+      })
+      .catch((cause) => {
+        if (active) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : 'Impossible de charger les brouillons.'
+          )
+        }
+      })
+
+    return () => {
+      active = false
+    }
   }, [])
 
   const calculation = useMemo(
@@ -126,6 +162,156 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
     setShowPicker(false)
   }
 
+  function buildInvoiceInput(includeDraftId: boolean): FinalizeInvoiceInput {
+    const adjustmentValue = calculation.adjustmentValue
+
+    return {
+      ...(includeDraftId && draftId !== null ? { draftId } : {}),
+      clientId: selectedClient?.id,
+      customerName: customer,
+      customerAddress: (selectedClient?.address ?? customerAddress) || undefined,
+      customerTaxId: (selectedClient?.taxId ?? customerTaxId) || undefined,
+      ...(adjustmentValue !== null && adjustmentMode === 'target'
+        ? { targetTotalTtcMillimes: adjustmentValue }
+        : {}),
+      ...(adjustmentValue !== null && adjustmentMode === 'discount'
+        ? { globalDiscountTtcMillimes: adjustmentValue }
+        : {}),
+      lines: lines.map((line) => ({
+        partId: line.partId,
+        reference: line.ref,
+        designation: line.designation,
+        quantity: line.qty,
+        unitPriceHtMillimes: line.listUnitPriceMillimes,
+        negotiatedUnitPriceHtMillimes:
+          parseTnd(line.clientUnitPriceText) ?? line.listUnitPriceMillimes
+      }))
+    }
+  }
+
+  async function refreshDrafts(): Promise<void> {
+    setDrafts(await window.desktop.invoices.listDrafts())
+  }
+
+  async function saveDraft(): Promise<void> {
+    if (lines.length === 0) {
+      setError('Ajoutez au moins une pièce avant d’enregistrer le brouillon.')
+      return
+    }
+    if (!calculation.valid) {
+      setError(
+        calculation.priceError
+        ?? calculation.adjustmentError
+        ?? 'Vérifiez les remises avant d’enregistrer.'
+      )
+      return
+    }
+
+    try {
+      setSavingDraft(true)
+      setError('')
+      setDraftNotice('')
+      const saved = await window.desktop.invoices.saveDraft(
+        buildInvoiceInput(false),
+        draftId ?? undefined
+      )
+      setDraftId(saved.id)
+      setDraftNotice('Brouillon enregistré dans la base locale.')
+      await refreshDrafts()
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Impossible d’enregistrer le brouillon.'
+      )
+    } finally {
+      setSavingDraft(false)
+    }
+  }
+
+  async function openDraft(id: number): Promise<void> {
+    try {
+      setError('')
+      setDraftNotice('')
+      const draft = await window.desktop.invoices.getDraft(id)
+      if (!draft) throw new Error('Brouillon introuvable.')
+
+      setFinalized(null)
+      setDraftId(draft.id)
+      setCustomer(draft.customerName)
+      setCustomerAddress(draft.customerAddress ?? '')
+      setCustomerTaxId(draft.customerTaxId ?? '')
+      setAdjustmentMode('discount')
+      setAdjustmentText(
+        draft.globalDiscountTtcMillimes > 0
+          ? editableTnd(draft.globalDiscountTtcMillimes)
+          : ''
+      )
+
+      setLines(draft.lines.map((line, index) => ({
+        id: `draft-${draft.id}-${line.partId ?? index}-${index}`,
+        partId: line.partId ?? 0,
+        ref: line.reference,
+        designation: line.designation,
+        stockAvailable: line.currentStock ?? line.quantity,
+        qty: line.quantity,
+        listUnitPriceMillimes: line.unitPriceHtMillimes,
+        clientUnitPriceText: editableTnd(line.negotiatedUnitPriceHtMillimes)
+      })))
+
+      if (draft.clientId) {
+        const candidates = await window.desktop.clients.list(draft.customerName)
+        const client = candidates.find((candidate) => candidate.id === draft.clientId) ?? null
+        setSelectedClient(client)
+      } else {
+        setSelectedClient(null)
+      }
+
+      const unavailable = draft.lines.some(
+        (line) =>
+          line.partId === null
+          || !line.currentPartActive
+          || line.currentStock === null
+          || line.currentStock < line.quantity
+      )
+      if (unavailable) {
+        setDraftNotice(
+          'Brouillon chargé. Certaines pièces ont changé ou le stock est insuffisant; vérifiez-les avant validation.'
+        )
+      } else {
+        setDraftNotice('Brouillon chargé.')
+      }
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Impossible d’ouvrir le brouillon.'
+      )
+    }
+  }
+
+  async function deleteDraft(id: number): Promise<void> {
+    const confirmed = window.confirm('Supprimer ce brouillon ?')
+    if (!confirmed) return
+
+    try {
+      setError('')
+      const deleted = await window.desktop.invoices.deleteDraft(id)
+      if (!deleted) throw new Error('Brouillon introuvable.')
+      if (draftId === id) {
+        setDraftId(null)
+        setDraftNotice('Brouillon supprimé. Les données restent dans l’éditeur tant que vous ne quittez pas.')
+      }
+      await refreshDrafts()
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Impossible de supprimer le brouillon.'
+      )
+    }
+  }
+
   async function finalize(): Promise<void> {
     if (lines.length === 0) {
       setError('Ajoutez au moins une pièce avant de valider la facture.')
@@ -145,28 +331,14 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
       setFinalizing(true)
       setError('')
 
-      const adjustmentValue = calculation.adjustmentValue
-      const result = await window.desktop.invoices.finalize({
-        clientId: selectedClient?.id,
-        customerName: customer,
-        ...(adjustmentValue !== null && adjustmentMode === 'target'
-          ? { targetTotalTtcMillimes: adjustmentValue }
-          : {}),
-        ...(adjustmentValue !== null && adjustmentMode === 'discount'
-          ? { globalDiscountTtcMillimes: adjustmentValue }
-          : {}),
-        lines: lines.map((line) => ({
-          partId: line.partId,
-          reference: line.ref,
-          designation: line.designation,
-          quantity: line.qty,
-          unitPriceHtMillimes: line.listUnitPriceMillimes,
-          negotiatedUnitPriceHtMillimes:
-            parseTnd(line.clientUnitPriceText) ?? line.listUnitPriceMillimes
-        }))
-      })
+      const result = await window.desktop.invoices.finalize(
+        buildInvoiceInput(true)
+      )
 
       setFinalized(result)
+      setDraftId(null)
+      setDraftNotice('')
+      await refreshDrafts()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de finaliser la facture.')
     } finally {
@@ -178,6 +350,10 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
     setLines([])
     setSelectedClient(null)
     setCustomer(business?.defaultCustomerName ?? t(lang, 'walkIn'))
+    setCustomerAddress('')
+    setCustomerTaxId('')
+    setDraftId(null)
+    setDraftNotice('')
     setFinalized(null)
     setAdjustmentMode('target')
     setAdjustmentText('')
@@ -215,8 +391,8 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
         number: 'PROVISOIRE',
         finalizedAt: null,
         customerName: customer,
-        customerAddress: selectedClient?.address ?? null,
-        customerTaxId: selectedClient?.taxId ?? null,
+        customerAddress: (selectedClient?.address ?? customerAddress) || null,
+        customerTaxId: (selectedClient?.taxId ?? customerTaxId) || null,
         subtotalGrossHt: calculation.subtotalGrossHt,
         lineDiscount: calculation.lineDiscount,
         netHt: calculation.netHt,
@@ -265,8 +441,14 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
             </>
           ) : (
             <>
-              <button className="secondary-button" type="button" disabled>
-                <Save size={18} />{t(lang, 'saveDraft')}
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => void saveDraft()}
+                disabled={savingDraft || finalizing || lines.length === 0 || !calculation.valid}
+              >
+                <Save size={18} />
+                {savingDraft ? 'Enregistrement…' : draftId ? 'Mettre à jour' : t(lang, 'saveDraft')}
               </button>
               <button className="secondary-button" type="button" onClick={() => window.print()}>
                 <Printer size={18} />{t(lang, 'print')}
@@ -292,11 +474,62 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
         </div>
       )}
 
+      {draftNotice && !finalized && (
+        <div className="inline-alert success">
+          <FilePenLine size={18} />
+          {draftNotice}
+          <button type="button" onClick={() => setDraftNotice('')}>Fermer</button>
+        </div>
+      )}
+
       {finalized && (
         <div className="inline-alert success">
           <CheckCircle2 size={18} />
           Facture {finalized.number} enregistrée avec ses remises. Les mouvements de stock sont figés.
         </div>
+      )}
+
+      {!finalized && drafts.length > 0 && (
+        <section className="panel saved-drafts-panel">
+          <div className="saved-drafts-heading">
+            <div>
+              <span className="eyebrow">Travail en cours</span>
+              <strong>Brouillons sauvegardés</strong>
+            </div>
+            <span>{drafts.length}</span>
+          </div>
+          <div className="saved-drafts-list">
+            {drafts.map((draft) => (
+              <div
+                className={draft.id === draftId ? 'saved-draft active' : 'saved-draft'}
+                key={draft.id}
+              >
+                <button
+                  className="saved-draft-open"
+                  type="button"
+                  onClick={() => void openDraft(draft.id)}
+                >
+                  <FilePenLine size={16} />
+                  <span>
+                    <strong>{draft.customerName}</strong>
+                    <small>
+                      {draft.lineCount} ligne(s) · {formatDraftDate(draft.updatedAt, locale)}
+                    </small>
+                  </span>
+                  <b>{formatTnd(draft.totalTtcMillimes, locale)}</b>
+                </button>
+                <button
+                  className="icon-button danger-button"
+                  type="button"
+                  title="Supprimer le brouillon"
+                  onClick={() => void deleteDraft(draft.id)}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       <div className="invoice-workspace">
@@ -317,6 +550,8 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
                   onChange={(event) => {
                     setCustomer(event.target.value)
                     setSelectedClient(null)
+                    setCustomerAddress('')
+                    setCustomerTaxId('')
                   }}
                   disabled={Boolean(finalized)}
                 />
@@ -348,6 +583,8 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
                   onClick={() => {
                     setSelectedClient(null)
                     setCustomer(business?.defaultCustomerName ?? t(lang, 'walkIn'))
+                    setCustomerAddress('')
+                    setCustomerTaxId('')
                   }}
                   aria-label="Retirer le client"
                 >
@@ -623,6 +860,8 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
           onSelect={(client) => {
             setSelectedClient(client)
             setCustomer(client.name)
+            setCustomerAddress(client.address ?? '')
+            setCustomerTaxId(client.taxId ?? '')
             setShowClientPicker(false)
           }}
         />
@@ -1088,6 +1327,16 @@ function calculateDraft(
     adjustmentValue,
     adjustmentError
   }
+}
+
+function formatDraftDate(value: string, locale: string): string {
+  const parsed = new Date(value.replace(' ', 'T') + 'Z')
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : parsed.toLocaleString(locale, {
+        dateStyle: 'short',
+        timeStyle: 'short'
+      })
 }
 
 function fallbackBusinessSettings(): BusinessSettings {

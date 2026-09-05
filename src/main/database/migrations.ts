@@ -161,5 +161,20 @@ export const migrations: Migration[] = [
       ALTER TABLE invoices
         ADD COLUMN business_snapshot_json TEXT;
     `
+  },
+  {
+    version: 5,
+    name: 'invoice_draft_updated_at',
+    sql: `
+      ALTER TABLE invoices
+        ADD COLUMN updated_at TEXT;
+
+      UPDATE invoices
+      SET updated_at = COALESCE(finalized_at, created_at)
+      WHERE updated_at IS NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_invoices_status_updated
+        ON invoices(status, updated_at DESC);
+    `
   }
 ]
