@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type JSX } from 'react'
-import { Filter, MoreHorizontal, PackagePlus, PlusCircle, Search, SlidersHorizontal, X } from 'lucide-react'
+import { Archive, ArchiveRestore, PackagePlus, Pencil, PlusCircle, Search, X } from 'lucide-react'
 import { Language, localeFor, t } from '../i18n'
 import { formatTnd } from '../lib/money'
-import type { CreatePartInput, Part } from '../../../shared/contracts'
+import type { CreatePartInput, Part, UpdatePartInput } from '../../../shared/contracts'
 
 export function Stock({ lang }: { lang: Language }): JSX.Element {
   const [query, setQuery] = useState('')
@@ -10,26 +10,51 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const [editing, setEditing] = useState<Part | null>(null)
   const [adjusting, setAdjusting] = useState<Part | null>(null)
+  const [includeArchived, setIncludeArchived] = useState(false)
 
   const load = useCallback(async (search = query) => {
     try {
       setLoading(true)
       setError('')
-      setParts(await window.desktop.parts.list(search))
+      setParts(await window.desktop.parts.list(search, includeArchived))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Impossible de charger le stock.')
     } finally {
       setLoading(false)
     }
-  }, [query])
+  }, [query, includeArchived])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => void load(query), 180)
     return () => window.clearTimeout(timeout)
   }, [query, load])
 
-  const lowCount = useMemo(() => parts.filter((part) => part.quantity <= part.lowStockThreshold).length, [parts])
+  const lowCount = useMemo(() => parts.filter((part) => part.isActive && part.quantity <= part.lowStockThreshold).length, [parts])
+
+  async function toggleArchive(part: Part): Promise<void> {
+    const nextActive = !part.isActive
+    if (!nextActive) {
+      const stockNote = part.quantity > 0
+        ? ' Il reste ' + part.quantity + ' unité(s) enregistrée(s); elles ne seront pas supprimées.'
+        : ''
+      const confirmed = window.confirm(
+        'Archiver ' + part.reference + ' — ' + part.designation + ' ?' +
+        stockNote +
+        ' La pièce ne sera plus proposée dans les nouvelles factures.'
+      )
+      if (!confirmed) return
+    }
+
+    try {
+      setError('')
+      await window.desktop.parts.setActive(part.id, nextActive)
+      await load()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de modifier le statut de la pièce.')
+    }
+  }
 
   return (
     <div className="page">
@@ -47,8 +72,14 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
       <section className="panel stock-panel">
         <div className="stock-toolbar">
           <label className="table-search"><Search size={18} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Référence, OEM, désignation, véhicule, rayon…" /></label>
-          <button className="secondary-button" type="button"><Filter size={17} />Catégorie</button>
-          <button className="secondary-button" type="button"><SlidersHorizontal size={17} />Filtres</button>
+          <label className="archive-toggle">
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(event) => setIncludeArchived(event.target.checked)}
+            />
+            <span>Afficher les archivées</span>
+          </label>
           <span className="result-count">{loading ? 'Chargement…' : `${parts.length} ${t(lang, 'parts')}`}</span>
         </div>
 
@@ -59,18 +90,58 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
               {parts.map((part) => {
                 const low = part.quantity <= part.lowStockThreshold
                 return (
-                  <tr key={part.id}>
+                  <tr key={part.id} className={part.isActive ? '' : 'archived-row'}>
                     <td><span className="mono-ref">{part.reference}</span>{part.oemReference && <span>{part.oemReference}</span>}</td>
-                    <td><strong>{part.designation}</strong></td>
+                    <td>
+                      <strong>{part.designation}</strong>
+                      {!part.isActive && <span className="archived-label">Archivée</span>}
+                    </td>
                     <td>{part.vehicleCompatibility || '—'}</td>
                     <td><span className="soft-pill">{part.categoryName || 'Sans catégorie'}</span></td>
                     <td><span className="location-pill">{part.location || '—'}</span></td>
-                    <td><button className={low ? 'stock-badge low stock-button' : 'stock-badge stock-button'} type="button" onClick={() => setAdjusting(part)}>{part.quantity}</button></td>
+                    <td>
+                      {part.isActive ? (
+                        <button
+                          className={low ? 'stock-badge low stock-button' : 'stock-badge stock-button'}
+                          type="button"
+                          onClick={() => setAdjusting(part)}
+                        >
+                          {part.quantity}
+                        </button>
+                      ) : (
+                        <span className="stock-badge">{part.quantity}</span>
+                      )}
+                    </td>
                     <td><strong>{formatTnd(part.salePriceMillimes, localeFor(lang))}</strong></td>
                     <td>
-                      <button className="icon-button table-more" type="button" onClick={() => setAdjusting(part)} title="Ajuster le stock">
-                        <PlusCircle size={17} />
-                      </button>
+                      <div className="stock-row-actions">
+                        {part.isActive && (
+                          <button
+                            className="icon-button table-more"
+                            type="button"
+                            onClick={() => setAdjusting(part)}
+                            title="Ajuster le stock"
+                          >
+                            <PlusCircle size={16} />
+                          </button>
+                        )}
+                        <button
+                          className="icon-button table-more"
+                          type="button"
+                          onClick={() => setEditing(part)}
+                          title="Modifier la fiche"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          className="icon-button table-more"
+                          type="button"
+                          onClick={() => void toggleArchive(part)}
+                          title={part.isActive ? 'Archiver' : 'Restaurer'}
+                        >
+                          {part.isActive ? <Archive size={16} /> : <ArchiveRestore size={16} />}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -82,6 +153,7 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
       </section>
 
       {showCreate && <CreatePartModal lang={lang} onClose={() => setShowCreate(false)} onCreated={async () => { setShowCreate(false); await load() }} />}
+      {editing && <EditPartModal part={editing} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await load() }} />}
       {adjusting && <AdjustStockModal part={adjusting} onClose={() => setAdjusting(null)} onSaved={async () => { setAdjusting(null); await load() }} />}
     </div>
   )
@@ -150,6 +222,85 @@ function CreatePartModal({ lang, onClose, onCreated }: { lang: Language; onClose
   )
 }
 
+
+function EditPartModal({ part, onClose, onSaved }: {
+  part: Part
+  onClose: () => void
+  onSaved: () => Promise<void>
+}): JSX.Element {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault()
+    const data = new FormData(event.currentTarget)
+    const input: UpdatePartInput = {
+      id: part.id,
+      reference: String(data.get('reference') || ''),
+      designation: String(data.get('designation') || ''),
+      oemReference: String(data.get('oemReference') || ''),
+      vehicleCompatibility: String(data.get('vehicleCompatibility') || ''),
+      categoryName: String(data.get('categoryName') || ''),
+      purchasePriceMillimes: toMillimes(data.get('purchasePrice')),
+      salePriceMillimes: toMillimes(data.get('salePrice')),
+      lowStockThreshold: toInteger(data.get('lowStockThreshold')),
+      location: String(data.get('location') || ''),
+      notes: String(data.get('notes') || '')
+    }
+
+    try {
+      setSaving(true)
+      setError('')
+      await window.desktop.parts.update(input)
+      await onSaved()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de modifier la pièce.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <form className="modal-card wide" onSubmit={(event) => void submit(event)}>
+        <div className="modal-heading">
+          <div>
+            <span className="eyebrow">{part.reference}</span>
+            <h2>Modifier la pièce</h2>
+            <p>La quantité reste séparée: utilisez “Ajuster le stock” pour garder une trace de chaque mouvement.</p>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose}><X size={18} /></button>
+        </div>
+
+        {error && <div className="inline-alert error">{error}</div>}
+
+        <div className="form-grid">
+          <label className="field"><span>Référence interne *</span><input name="reference" required autoFocus defaultValue={part.reference} /></label>
+          <label className="field"><span>Désignation *</span><input name="designation" required defaultValue={part.designation} /></label>
+          <label className="field"><span>Référence OEM</span><input name="oemReference" defaultValue={part.oemReference || ''} /></label>
+          <label className="field"><span>Compatibilité véhicule</span><input name="vehicleCompatibility" defaultValue={part.vehicleCompatibility || ''} /></label>
+          <label className="field"><span>Catégorie</span><input name="categoryName" defaultValue={part.categoryName || ''} /></label>
+          <label className="field"><span>Emplacement</span><input name="location" defaultValue={part.location || ''} /></label>
+          <label className="field"><span>Prix achat (DT)</span><input name="purchasePrice" inputMode="decimal" defaultValue={editableTnd(part.purchasePriceMillimes)} /></label>
+          <label className="field"><span>Prix vente (DT) *</span><input name="salePrice" required inputMode="decimal" defaultValue={editableTnd(part.salePriceMillimes)} /></label>
+          <label className="field"><span>Seuil stock faible</span><input name="lowStockThreshold" type="number" min="0" defaultValue={part.lowStockThreshold} /></label>
+          <div className="stock-edit-lock">
+            <span>Stock actuel</span>
+            <strong>{part.quantity}</strong>
+            <small>Non modifiable depuis cette fiche.</small>
+          </div>
+          <label className="field full"><span>Notes</span><input name="notes" defaultValue={part.notes || ''} /></label>
+        </div>
+
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose} disabled={saving}>Annuler</button>
+          <button className="primary-button" type="submit" disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer les modifications'}</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 function AdjustStockModal({ part, onClose, onSaved }: { part: Part; onClose: () => void; onSaved: () => Promise<void> }): JSX.Element {
   const [delta, setDelta] = useState(1)
   const [reason, setReason] = useState<'PURCHASE' | 'CORRECTION' | 'RETURN' | 'OTHER'>('PURCHASE')
@@ -203,4 +354,8 @@ function toMillimes(value: FormDataEntryValue | null): number {
 function toInteger(value: FormDataEntryValue | null): number {
   const parsed = Number(String(value || '0'))
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : -1
+}
+
+function editableTnd(millimes: number): string {
+  return (millimes / 1000).toFixed(3)
 }

@@ -1,15 +1,21 @@
 import { ipcMain } from 'electron'
-import { adjustStock, createPart, listParts } from '../repositories/parts'
+import { adjustStock, createPart, listParts, setPartActive, updatePart } from '../repositories/parts'
 import { createClient, listClients, updateClient } from '../repositories/clients'
 import { getDashboardOverview } from '../services/dashboard'
 import { finalizeInvoice, getInvoice, listInvoices } from '../services/invoices'
 import { createBackup, restoreBackup } from '../services/backup'
 import { getBusinessSettings, updateBusinessSettings } from '../services/settings'
-import type { AdjustStockInput, BusinessSettings, CreateClientInput, CreatePartInput, FinalizeInvoiceInput, UpdateClientInput } from '../../shared/contracts'
+import type { AdjustStockInput, BusinessSettings, CreateClientInput, CreatePartInput, FinalizeInvoiceInput, UpdateClientInput, UpdatePartInput } from '../../shared/contracts'
 
 export function registerIpcHandlers(): void {
-  ipcMain.handle('parts:list', (_event, query?: string) => listParts(typeof query === 'string' ? query : ''))
+  ipcMain.handle('parts:list', (_event, query?: string, includeArchived?: boolean) =>
+    listParts(typeof query === 'string' ? query : '', includeArchived === true)
+  )
   ipcMain.handle('parts:create', (_event, input: CreatePartInput) => createPart(input))
+  ipcMain.handle('parts:update', (_event, input: UpdatePartInput) => updatePart(input))
+  ipcMain.handle('parts:set-active', (_event, partId: number, isActive: boolean) =>
+    setPartActive(partId, isActive === true)
+  )
   ipcMain.handle('parts:adjust-stock', (_event, input: AdjustStockInput) => adjustStock(input))
 
   ipcMain.handle('clients:list', (_event, query?: string) =>

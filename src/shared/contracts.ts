@@ -72,6 +72,20 @@ export type CreatePartInput = {
   notes?: string
 }
 
+export type UpdatePartInput = {
+  id: number
+  reference: string
+  designation: string
+  oemReference?: string
+  vehicleCompatibility?: string
+  categoryName?: string
+  purchasePriceMillimes?: number
+  salePriceMillimes: number
+  lowStockThreshold?: number
+  location?: string
+  notes?: string
+}
+
 export type AdjustStockInput = {
   partId: number
   delta: number
@@ -178,8 +192,10 @@ export type RestoreResult = {
 export type DesktopApi = {
   platform: string
   parts: {
-    list: (query?: string) => Promise<Part[]>
+    list: (query?: string, includeArchived?: boolean) => Promise<Part[]>
     create: (input: CreatePartInput) => Promise<Part>
+    update: (input: UpdatePartInput) => Promise<Part>
+    setActive: (partId: number, isActive: boolean) => Promise<Part>
     adjustStock: (input: AdjustStockInput) => Promise<Part>
   }
   clients: {

@@ -1,6 +1,6 @@
 import { getDatabase } from '../database'
 import { inTransaction } from '../database/transaction'
-import type { AdjustStockInput, CreatePartInput, Part } from '../../shared/contracts'
+import type { AdjustStockInput, CreatePartInput, Part, UpdatePartInput } from '../../shared/contracts'
 
 type PartRow = {
   id: number
@@ -45,14 +45,15 @@ const partSelect = `
   LEFT JOIN categories c ON c.id = p.category_id
 `
 
-export function listParts(query = ''): Part[] {
+export function listParts(query = '', includeArchived = false): Part[] {
   const db = getDatabase()
   const needle = query.trim()
+  const activeClause = includeArchived ? '1 = 1' : 'p.is_active = 1'
 
   const rows = needle
     ? db.prepare(`
         ${partSelect}
-        WHERE p.is_active = 1
+        WHERE ${activeClause}
           AND (
             p.reference LIKE ? COLLATE NOCASE
             OR p.designation LIKE ? COLLATE NOCASE
@@ -61,13 +62,13 @@ export function listParts(query = ''): Part[] {
             OR COALESCE(c.name, '') LIKE ? COLLATE NOCASE
             OR COALESCE(p.location, '') LIKE ? COLLATE NOCASE
           )
-        ORDER BY p.designation COLLATE NOCASE, p.reference COLLATE NOCASE
+        ORDER BY p.is_active DESC, p.designation COLLATE NOCASE, p.reference COLLATE NOCASE
         LIMIT 500
       `).all(...Array(6).fill(`%${needle}%`)) as PartRow[]
     : db.prepare(`
         ${partSelect}
-        WHERE p.is_active = 1
-        ORDER BY p.designation COLLATE NOCASE, p.reference COLLATE NOCASE
+        WHERE ${activeClause}
+        ORDER BY p.is_active DESC, p.designation COLLATE NOCASE, p.reference COLLATE NOCASE
         LIMIT 500
       `).all() as PartRow[]
 
@@ -129,6 +130,90 @@ export function createPart(input: CreatePartInput): Part {
     if (!created) throw new Error('Created part could not be loaded')
     return created
   })
+}
+
+
+export function updatePart(input: UpdatePartInput): Part {
+  const db = getDatabase()
+  const partId = requirePositiveInteger(input.id, 'id')
+  const reference = requireText(input.reference, 'reference').toUpperCase()
+  const designation = requireText(input.designation, 'designation')
+  const salePrice = requireNonNegativeInteger(input.salePriceMillimes, 'salePriceMillimes')
+  const purchasePrice = requireNonNegativeInteger(input.purchasePriceMillimes ?? 0, 'purchasePriceMillimes')
+  const threshold = requireNonNegativeInteger(input.lowStockThreshold ?? 0, 'lowStockThreshold')
+
+  return inTransaction(db, () => {
+    const current = getPart(partId)
+    if (!current) throw new Error('Part not found')
+
+    const categoryId = input.categoryName?.trim()
+      ? ensureCategory(input.categoryName.trim())
+      : null
+
+    const result = db.prepare(`
+      UPDATE parts
+      SET
+        reference = ?,
+        designation = ?,
+        oem_reference = ?,
+        vehicle_compatibility = ?,
+        category_id = ?,
+        purchase_price_millimes = ?,
+        sale_price_millimes = ?,
+        low_stock_threshold = ?,
+        location = ?,
+        notes = ?,
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).run(
+      reference,
+      designation,
+      optionalText(input.oemReference),
+      optionalText(input.vehicleCompatibility),
+      categoryId,
+      purchasePrice,
+      salePrice,
+      threshold,
+      optionalText(input.location),
+      optionalText(input.notes),
+      partId
+    )
+
+    if (result.changes !== 1) throw new Error('Part could not be updated')
+
+    writeAudit('part', partId, 'UPDATE', {
+      reference,
+      designation,
+      salePrice,
+      threshold
+    })
+
+    const updated = getPart(partId)
+    if (!updated) throw new Error('Updated part could not be loaded')
+    return updated
+  })
+}
+
+export function setPartActive(partIdValue: number, isActive: boolean): Part {
+  const db = getDatabase()
+  const partId = requirePositiveInteger(partIdValue, 'partId')
+  const current = getPart(partId)
+  if (!current) throw new Error('Part not found')
+
+  db.prepare(`
+    UPDATE parts
+    SET is_active = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `).run(isActive ? 1 : 0, partId)
+
+  writeAudit('part', partId, isActive ? 'RESTORE' : 'ARCHIVE', {
+    reference: current.reference,
+    quantity: current.quantity
+  })
+
+  const updated = getPart(partId)
+  if (!updated) throw new Error('Updated part could not be loaded')
+  return updated
 }
 
 export function adjustStock(input: AdjustStockInput): Part {

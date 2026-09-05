@@ -6,14 +6,19 @@ import type {
   CreatePartInput,
   DesktopApi,
   FinalizeInvoiceInput,
-  UpdateClientInput
+  UpdateClientInput,
+  UpdatePartInput
 } from '../shared/contracts'
 
 const api: DesktopApi = {
   platform: process.platform,
   parts: {
-    list: (query = '') => ipcRenderer.invoke('parts:list', query),
+    list: (query = '', includeArchived = false) =>
+      ipcRenderer.invoke('parts:list', query, includeArchived),
     create: (input: CreatePartInput) => ipcRenderer.invoke('parts:create', input),
+    update: (input: UpdatePartInput) => ipcRenderer.invoke('parts:update', input),
+    setActive: (partId: number, isActive: boolean) =>
+      ipcRenderer.invoke('parts:set-active', partId, isActive),
     adjustStock: (input: AdjustStockInput) => ipcRenderer.invoke('parts:adjust-stock', input)
   },
   clients: {
