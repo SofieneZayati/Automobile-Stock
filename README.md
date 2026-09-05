@@ -241,7 +241,7 @@ The application has moved beyond static UI mockups:
 - Adding, editing, archiving/restoring a part and recording stock entry/correction are connected to SQLite. Each part can be associated with a saved supplier.
 - Invoice product search reads live stock; saved clients can be selected and their name/address/tax ID are snapshotted onto the invoice.
 - Finalizing an invoice is transactional: stock is checked, a configurable sequential number is assigned, immutable line/business snapshots are written and SALE movements decrement stock together.
-- Finalized invoices have a searchable history and can be reopened/reprinted. Per-item negotiated prices and whole-invoice discounts are preserved.
+- Invoice drafts can now be saved, reopened, updated, deleted, and consumed safely when finalizing. Finalized invoices have a searchable history and can be reopened/reprinted. Per-item negotiated prices and whole-invoice discounts are preserved.
 - Dashboard totals and low-stock warnings come from local data. Per-part stock movement history is viewable from the stock table, including linked invoice numbers for sales.
 - Editable establishment identity, address, phones, matricule fiscal, TVA default, invoice prefix/digits and default customer are persisted in SQLite. Manual backup and integrity-checked restore are available from Settings, and restore now keeps an automatic pre-restore safety copy of the active database.
 - Language selection persists locally; French remains the default and Arabic still switches document direction to RTL.
@@ -253,6 +253,6 @@ The application has moved beyond static UI mockups:
 - Confirm fiscal/legal invoice fields with the client (matricule fiscal, HT/TTC convention, TVA rules and invoice numbering).
 - Confirm the exact client fiscal values before final delivery; the app now makes them editable and snapshots them on finalized invoices.
 - Continue stock reporting polish, draft invoices, and cancellation/avoir rules if required.
-- Add invoice draft persistence, cancellation/avoir rules if required, and stronger print tests for long multi-page invoices.
+- Invoice draft persistence is implemented; cancellation/avoir rules if required and stronger print tests for long multi-page invoices remain.
 - Test backup/restore with production-like data.
 - Run and validate the Windows portable artifact on the client's Windows machine and printer.
