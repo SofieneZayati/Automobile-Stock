@@ -124,6 +124,7 @@ export type CreateInvoiceLineInput = {
 }
 
 export type FinalizeInvoiceInput = {
+  clientId?: number
   customerName?: string
   customerAddress?: string
   customerTaxId?: string
@@ -149,6 +150,7 @@ export type FinalizedInvoiceLine = {
 export type FinalizedInvoice = {
   id: number
   number: string
+  clientId: number | null
   customerName: string
   customerAddress: string | null
   customerTaxId: string | null

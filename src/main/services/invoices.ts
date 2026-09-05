@@ -72,21 +72,31 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
     }
 
     const number = nextInvoiceNumber(business)
+    const selectedClient = resolveClient(input.clientId)
     const customerName =
-      cleanText(input.customerName) ?? business.defaultCustomerName
+      selectedClient?.name
+      ?? cleanText(input.customerName)
+      ?? business.defaultCustomerName
+    const customerAddress =
+      selectedClient?.address
+      ?? cleanText(input.customerAddress)
+    const customerTaxId =
+      selectedClient?.tax_id
+      ?? cleanText(input.customerTaxId)
 
     const invoiceResult = db.prepare(`
       INSERT INTO invoices(
-        number, status, customer_name, customer_address, customer_tax_id,
+        number, status, client_id, customer_name, customer_address, customer_tax_id,
         subtotal_ht_millimes, discount_millimes, global_discount_ttc_millimes,
         tax_millimes, total_ttc_millimes, notes, business_snapshot_json,
         finalized_at
-      ) VALUES (?, 'FINALIZED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ) VALUES (?, 'FINALIZED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     `).run(
       number,
+      selectedClient?.id ?? null,
       customerName,
-      cleanText(input.customerAddress),
-      cleanText(input.customerTaxId),
+      customerAddress,
+      customerTaxId,
       subtotalHtMillimes,
       discountMillimes,
       globalDiscountTtcMillimes,
@@ -187,7 +197,7 @@ export function getInvoice(id: number): FinalizedInvoice | null {
 
   const invoice = db.prepare(`
     SELECT
-      id, number, customer_name, customer_address, customer_tax_id, notes,
+      id, number, client_id, customer_name, customer_address, customer_tax_id, notes,
       finalized_at, subtotal_ht_millimes, discount_millimes,
       global_discount_ttc_millimes, tax_millimes, total_ttc_millimes,
       business_snapshot_json
@@ -196,6 +206,7 @@ export function getInvoice(id: number): FinalizedInvoice | null {
   `).get(id) as {
     id: number
     number: string
+    client_id: number | null
     customer_name: string
     customer_address: string | null
     customer_tax_id: string | null
@@ -234,6 +245,7 @@ export function getInvoice(id: number): FinalizedInvoice | null {
   return {
     id: invoice.id,
     number: invoice.number,
+    clientId: invoice.client_id,
     customerName: invoice.customer_name,
     customerAddress: invoice.customer_address,
     customerTaxId: invoice.customer_tax_id,
@@ -315,6 +327,33 @@ export function listInvoices(query = ''): InvoiceListItem[] {
     totalTtcMillimes: row.total_ttc_millimes,
     lineCount: row.line_count
   }))
+}
+
+function resolveClient(clientId?: number): {
+  id: number
+  name: string
+  address: string | null
+  tax_id: string | null
+} | null {
+  if (clientId === undefined || clientId === null) return null
+  if (!Number.isInteger(clientId) || clientId <= 0) {
+    throw new Error('Invalid client id')
+  }
+
+  const db = getDatabase()
+  const row = db.prepare(`
+    SELECT id, name, address, tax_id
+    FROM clients
+    WHERE id = ?
+  `).get(clientId) as {
+    id: number
+    name: string
+    address: string | null
+    tax_id: string | null
+  } | undefined
+
+  if (!row) throw new Error('Client not found')
+  return row
 }
 
 function nextInvoiceNumber(settings: BusinessSettings): string {

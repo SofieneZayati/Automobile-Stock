@@ -11,7 +11,7 @@ import {
   Trash2,
   X
 } from 'lucide-react'
-import type { BusinessSettings, FinalizedInvoice, Part } from '../../../shared/contracts'
+import type { BusinessSettings, Client, FinalizedInvoice, Part } from '../../../shared/contracts'
 import { Language, localeFor, t } from '../i18n'
 import { formatTnd, percentageAmount } from '../lib/money'
 
@@ -46,6 +46,8 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
   const [lines, setLines] = useState<DraftLine[]>([])
   const [customer, setCustomer] = useState(t(lang, 'walkIn'))
   const [showPicker, setShowPicker] = useState(false)
+  const [showClientPicker, setShowClientPicker] = useState(false)
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [finalized, setFinalized] = useState<FinalizedInvoice | null>(null)
   const [finalizing, setFinalizing] = useState(false)
   const [error, setError] = useState('')
@@ -145,6 +147,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
 
       const adjustmentValue = calculation.adjustmentValue
       const result = await window.desktop.invoices.finalize({
+        clientId: selectedClient?.id,
         customerName: customer,
         ...(adjustmentValue !== null && adjustmentMode === 'target'
           ? { targetTotalTtcMillimes: adjustmentValue }
@@ -173,6 +176,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
 
   function newInvoice(): void {
     setLines([])
+    setSelectedClient(null)
     setCustomer(business?.defaultCustomerName ?? t(lang, 'walkIn'))
     setFinalized(null)
     setAdjustmentMode('target')
@@ -185,6 +189,8 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
         number: finalized.number,
         finalizedAt: finalized.finalizedAt,
         customerName: finalized.customerName,
+        customerAddress: finalized.customerAddress,
+        customerTaxId: finalized.customerTaxId,
         subtotalGrossHt: finalized.subtotalHtMillimes,
         lineDiscount: finalized.discountMillimes,
         netHt: finalized.subtotalHtMillimes - finalized.discountMillimes,
@@ -209,6 +215,8 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
         number: 'PROVISOIRE',
         finalizedAt: null,
         customerName: customer,
+        customerAddress: selectedClient?.address ?? null,
+        customerTaxId: selectedClient?.taxId ?? null,
         subtotalGrossHt: calculation.subtotalGrossHt,
         lineDiscount: calculation.lineDiscount,
         netHt: calculation.netHt,
@@ -301,14 +309,52 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
                 <small>Facultatif pour une vente au comptoir</small>
               </div>
             </div>
-            <label className="field">
-              <span>Nom / société</span>
-              <input
-                value={finalized?.customerName ?? customer}
-                onChange={(event) => setCustomer(event.target.value)}
-                disabled={Boolean(finalized)}
-              />
-            </label>
+            <div className="invoice-customer-row">
+              <label className="field">
+                <span>Nom / société</span>
+                <input
+                  value={finalized?.customerName ?? customer}
+                  onChange={(event) => {
+                    setCustomer(event.target.value)
+                    setSelectedClient(null)
+                  }}
+                  disabled={Boolean(finalized)}
+                />
+              </label>
+              {!finalized && (
+                <button
+                  className="secondary-button customer-picker-button"
+                  type="button"
+                  onClick={() => setShowClientPicker(true)}
+                >
+                  <Search size={16} />
+                  Choisir un client enregistré
+                </button>
+              )}
+            </div>
+
+            {!finalized && selectedClient && (
+              <div className="selected-client-card">
+                <div>
+                  <strong>{selectedClient.name}</strong>
+                  <span>
+                    {[selectedClient.phone, selectedClient.address].filter(Boolean).join(' · ') || 'Coordonnées non renseignées'}
+                  </span>
+                  {selectedClient.taxId && <small>MF: {selectedClient.taxId}</small>}
+                </div>
+                <button
+                  className="icon-button"
+                  type="button"
+                  onClick={() => {
+                    setSelectedClient(null)
+                    setCustomer(business?.defaultCustomerName ?? t(lang, 'walkIn'))
+                  }}
+                  aria-label="Retirer le client"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="editor-section">
@@ -570,6 +616,116 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
           onSelect={addPart}
         />
       )}
+
+      {showClientPicker && (
+        <ClientPicker
+          onClose={() => setShowClientPicker(false)}
+          onSelect={(client) => {
+            setSelectedClient(client)
+            setCustomer(client.name)
+            setShowClientPicker(false)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ClientPicker({
+  onClose,
+  onSelect
+}: {
+  onClose: () => void
+  onSelect: (client: Client) => void
+}): JSX.Element {
+  const [query, setQuery] = useState('')
+  const [clients, setClients] = useState<Client[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const timeout = window.setTimeout(async () => {
+      try {
+        setLoading(true)
+        setError('')
+        const result = await window.desktop.clients.list(query)
+        if (active) setClients(result)
+      } catch (cause) {
+        if (active) {
+          setError(cause instanceof Error ? cause.message : 'Recherche client impossible.')
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }, 120)
+
+    return () => {
+      active = false
+      window.clearTimeout(timeout)
+    }
+  }, [query])
+
+  return (
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <div className="modal-card picker-card">
+        <div className="modal-heading">
+          <div>
+            <span className="eyebrow">Clients</span>
+            <h2>Choisir un client enregistré</h2>
+            <p>Le nom, l’adresse et le matricule fiscal seront repris sur la facture.</p>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <label className="table-search picker-search">
+          <Search size={18} />
+          <input
+            autoFocus
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Nom, téléphone, matricule fiscal…"
+          />
+        </label>
+
+        {error && <div className="inline-alert error">{error}</div>}
+
+        <div className="picker-results">
+          {loading && <div className="panel-empty">Recherche…</div>}
+          {!loading && clients.map((client) => (
+            <button
+              className="picker-row"
+              type="button"
+              key={client.id}
+              onClick={() => onSelect(client)}
+            >
+              <span>
+                <strong>{client.name}</strong>
+                <small>
+                  {[client.phone, client.taxId ? `MF ${client.taxId}` : null]
+                    .filter(Boolean)
+                    .join(' · ') || 'Aucune coordonnée'}
+                </small>
+              </span>
+              <span className="picker-meta">
+                <small>{client.address || 'Adresse non renseignée'}</small>
+              </span>
+              <Plus size={18} />
+            </button>
+          ))}
+          {!loading && clients.length === 0 && (
+            <div className="panel-empty">Aucun client trouvé.</div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -692,6 +848,8 @@ function InvoicePaper({
     number: string
     finalizedAt: string | null
     customerName: string
+    customerAddress: string | null
+    customerTaxId: string | null
     subtotalGrossHt: number
     lineDiscount: number
     netHt: number
@@ -740,7 +898,8 @@ function InvoicePaper({
         <div>
           <span className="paper-label">CLIENT</span>
           <strong>{paper.customerName || 'Client comptoir'}</strong>
-          <small>Tunis, Tunisie</small>
+          {paper.customerAddress && <small>{paper.customerAddress}</small>}
+          {paper.customerTaxId && <small>MF: {paper.customerTaxId}</small>}
         </div>
         <div>
           <span className="paper-label">ÉTABLISSEMENT</span>
