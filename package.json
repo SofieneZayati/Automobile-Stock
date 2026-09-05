@@ -15,7 +15,9 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
     "dist": "npm run build && electron-builder",
-    "dist:portable": "npm run build && electron-builder --win portable"
+    "dist:portable": "npm run build && electron-builder --win portable",
+    "electron:install": "install-electron --no",
+    "postinstall": "npm run electron:install"
   },
   "dependencies": {
     "lucide-react": "^0.544.0",
