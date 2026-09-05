@@ -20,16 +20,30 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
   }
 
   const calculated = input.lines.map(calculateLine)
-  const subtotalHtMillimes = calculated.reduce((sum, line) => sum + line.lineHtMillimes + line.discountMillimes, 0)
+  const subtotalHtMillimes = calculated.reduce(
+    (sum, line) => sum + line.lineHtMillimes + line.discountMillimes,
+    0
+  )
   const discountMillimes = calculated.reduce((sum, line) => sum + line.discountMillimes, 0)
   const taxMillimes = calculated.reduce((sum, line) => sum + line.taxMillimes, 0)
-  const totalTtcMillimes = calculated.reduce((sum, line) => sum + line.lineTtcMillimes, 0)
+  const totalBeforeGlobalDiscountTtcMillimes = calculated.reduce(
+    (sum, line) => sum + line.lineTtcMillimes,
+    0
+  )
+  const globalDiscountTtcMillimes = resolveGlobalDiscount(
+    input,
+    totalBeforeGlobalDiscountTtcMillimes
+  )
+  const totalTtcMillimes =
+    totalBeforeGlobalDiscountTtcMillimes - globalDiscountTtcMillimes
 
   return inTransaction(db, () => {
     for (const line of calculated) {
       if (!line.partId) continue
 
-      const stock = db.prepare('SELECT quantity, reference, designation FROM parts WHERE id = ? AND is_active = 1').get(line.partId) as {
+      const stock = db.prepare(
+        'SELECT quantity, reference, designation FROM parts WHERE id = ? AND is_active = 1'
+      ).get(line.partId) as {
         quantity: number
         reference: string
         designation: string
@@ -47,9 +61,9 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
     const invoiceResult = db.prepare(`
       INSERT INTO invoices(
         number, status, customer_name, customer_address, customer_tax_id,
-        subtotal_ht_millimes, discount_millimes, tax_millimes, total_ttc_millimes,
-        notes, finalized_at
-      ) VALUES (?, 'FINALIZED', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        subtotal_ht_millimes, discount_millimes, global_discount_ttc_millimes,
+        tax_millimes, total_ttc_millimes, notes, finalized_at
+      ) VALUES (?, 'FINALIZED', ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     `).run(
       number,
       customerName,
@@ -57,6 +71,7 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
       cleanText(input.customerTaxId),
       subtotalHtMillimes,
       discountMillimes,
+      globalDiscountTtcMillimes,
       taxMillimes,
       totalTtcMillimes,
       cleanText(input.notes)
@@ -101,10 +116,14 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
       )
 
       if (line.partId) {
-        const beforeRow = db.prepare('SELECT quantity FROM parts WHERE id = ?').get(line.partId) as { quantity: number }
+        const beforeRow = db.prepare('SELECT quantity FROM parts WHERE id = ?')
+          .get(line.partId) as { quantity: number }
         const before = beforeRow.quantity
         const result = stockUpdate.run(line.quantity, line.partId, line.quantity)
-        if (result.changes !== 1) throw new Error(`Stock changed while finalizing ${line.reference}`)
+        if (result.changes !== 1) {
+          throw new Error(`Stock changed while finalizing ${line.reference}`)
+        }
+
         movementInsert.run(
           line.partId,
           -line.quantity,
@@ -119,7 +138,16 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
     db.prepare(`
       INSERT INTO audit_log(entity_type, entity_id, action, details_json)
       VALUES ('invoice', ?, 'FINALIZE', ?)
-    `).run(invoiceId, JSON.stringify({ number, totalTtcMillimes, lineCount: calculated.length }))
+    `).run(
+      invoiceId,
+      JSON.stringify({
+        number,
+        lineDiscountMillimes: discountMillimes,
+        globalDiscountTtcMillimes,
+        totalTtcMillimes,
+        lineCount: calculated.length
+      })
+    )
 
     const finalized = getInvoice(invoiceId)
     if (!finalized) throw new Error('Finalized invoice could not be loaded')
@@ -134,7 +162,8 @@ export function getInvoice(id: number): FinalizedInvoice | null {
   const invoice = db.prepare(`
     SELECT
       id, number, customer_name, customer_address, customer_tax_id, notes,
-      finalized_at, subtotal_ht_millimes, discount_millimes, tax_millimes, total_ttc_millimes
+      finalized_at, subtotal_ht_millimes, discount_millimes,
+      global_discount_ttc_millimes, tax_millimes, total_ttc_millimes
     FROM invoices
     WHERE id = ? AND status = 'FINALIZED' AND number IS NOT NULL
   `).get(id) as {
@@ -147,6 +176,7 @@ export function getInvoice(id: number): FinalizedInvoice | null {
     finalized_at: string
     subtotal_ht_millimes: number
     discount_millimes: number
+    global_discount_ttc_millimes: number
     tax_millimes: number
     total_ttc_millimes: number
   } | undefined
@@ -182,94 +212,30 @@ export function getInvoice(id: number): FinalizedInvoice | null {
     finalizedAt: invoice.finalized_at,
     subtotalHtMillimes: invoice.subtotal_ht_millimes,
     discountMillimes: invoice.discount_millimes,
+    globalDiscountTtcMillimes: invoice.global_discount_ttc_millimes,
     taxMillimes: invoice.tax_millimes,
+    totalBeforeGlobalDiscountTtcMillimes:
+      invoice.total_ttc_millimes + invoice.global_discount_ttc_millimes,
     totalTtcMillimes: invoice.total_ttc_millimes,
-    lines: rows.map((row) => ({
-      reference: row.reference_snapshot,
-      designation: row.designation_snapshot,
-      quantity: row.quantity,
-      unitPriceHtMillimes: row.unit_price_ht_millimes,
-      discountMillimes: row.discount_millimes,
-      taxPercent: row.tax_percent,
-      lineHtMillimes: row.line_ht_millimes,
-      taxMillimes: row.tax_millimes,
-      lineTtcMillimes: row.line_ttc_millimes
-    }))
+    lines: rows.map((row) => {
+      const gross = row.unit_price_ht_millimes * row.quantity
+      const net = gross - row.discount_millimes
+
+      return {
+        reference: row.reference_snapshot,
+        designation: row.designation_snapshot,
+        quantity: row.quantity,
+        unitPriceHtMillimes: row.unit_price_ht_millimes,
+        netUnitPriceHtMillimes: Math.round(net / row.quantity),
+        discountMillimes: row.discount_millimes,
+        taxPercent: row.tax_percent,
+        lineHtMillimes: row.line_ht_millimes,
+        taxMillimes: row.tax_millimes,
+        lineTtcMillimes: row.line_ttc_millimes
+      }
+    })
   }
 }
-
-function nextInvoiceNumber(): string {
-  const db = getDatabase()
-  const year = new Date().getFullYear()
-  const prefix = `F-${year}-`
-
-  const row = db.prepare(`
-    SELECT number
-    FROM invoices
-    WHERE number LIKE ?
-    ORDER BY number DESC
-    LIMIT 1
-  `).get(`${prefix}%`) as { number: string } | undefined
-
-  const lastSequence = row ? Number.parseInt(row.number.slice(prefix.length), 10) || 0 : 0
-  return `${prefix}${String(lastSequence + 1).padStart(4, '0')}`
-}
-
-function calculateLine(input: CreateInvoiceLineInput): CalculatedLine {
-  const reference = requireText(input.reference, 'reference')
-  const designation = requireText(input.designation, 'designation')
-  const quantity = requirePositiveInteger(input.quantity, 'quantity')
-  const unitPrice = requireNonNegativeInteger(input.unitPriceHtMillimes, 'unitPriceHtMillimes')
-  const discountPercent = requirePercentage(input.discountPercent ?? 0, 'discountPercent')
-  const taxPercent = requirePercentage(input.taxPercent ?? 19, 'taxPercent')
-
-  const gross = quantity * unitPrice
-  const discountMillimes = Math.round((gross * discountPercent) / 100)
-  const lineHtMillimes = gross - discountMillimes
-  const taxMillimes = Math.round((lineHtMillimes * taxPercent) / 100)
-  const lineTtcMillimes = lineHtMillimes + taxMillimes
-
-  return {
-    partId: input.partId && Number.isInteger(input.partId) && input.partId > 0 ? input.partId : null,
-    reference,
-    designation,
-    quantity,
-    unitPriceHtMillimes: unitPrice,
-    discountPercent,
-    discountMillimes,
-    taxPercent,
-    lineHtMillimes,
-    taxMillimes,
-    lineTtcMillimes
-  }
-}
-
-function cleanText(value?: string): string | null {
-  const text = value?.trim()
-  return text ? text : null
-}
-
-function requireText(value: string, field: string): string {
-  const text = value?.trim()
-  if (!text) throw new Error(`${field} is required`)
-  return text
-}
-
-function requirePositiveInteger(value: number, field: string): number {
-  if (!Number.isInteger(value) || value <= 0) throw new Error(`${field} must be a positive integer`)
-  return value
-}
-
-function requireNonNegativeInteger(value: number, field: string): number {
-  if (!Number.isInteger(value) || value < 0) throw new Error(`${field} must be a non-negative integer`)
-  return value
-}
-
-function requirePercentage(value: number, field: string): number {
-  if (!Number.isFinite(value) || value < 0 || value > 100) throw new Error(`${field} must be between 0 and 100`)
-  return value
-}
-
 
 export function listInvoices(query = ''): InvoiceListItem[] {
   const db = getDatabase()
@@ -317,4 +283,151 @@ export function listInvoices(query = ''): InvoiceListItem[] {
     totalTtcMillimes: row.total_ttc_millimes,
     lineCount: row.line_count
   }))
+}
+
+function nextInvoiceNumber(): string {
+  const db = getDatabase()
+  const year = new Date().getFullYear()
+  const prefix = `F-${year}-`
+
+  const row = db.prepare(`
+    SELECT number
+    FROM invoices
+    WHERE number LIKE ?
+    ORDER BY number DESC
+    LIMIT 1
+  `).get(`${prefix}%`) as { number: string } | undefined
+
+  const lastSequence = row
+    ? Number.parseInt(row.number.slice(prefix.length), 10) || 0
+    : 0
+
+  return `${prefix}${String(lastSequence + 1).padStart(4, '0')}`
+}
+
+function calculateLine(input: CreateInvoiceLineInput): CalculatedLine {
+  const reference = requireText(input.reference, 'reference')
+  const designation = requireText(input.designation, 'designation')
+  const quantity = requirePositiveInteger(input.quantity, 'quantity')
+  const unitPrice = requireNonNegativeInteger(
+    input.unitPriceHtMillimes,
+    'unitPriceHtMillimes'
+  )
+  const taxPercent = requirePercentage(input.taxPercent ?? 19, 'taxPercent')
+
+  const gross = quantity * unitPrice
+  let discountPercent = 0
+  let discountMillimes = 0
+  let lineHtMillimes = gross
+  let netUnitPriceHtMillimes = unitPrice
+
+  if (input.negotiatedUnitPriceHtMillimes !== undefined) {
+    const negotiated = requireNonNegativeInteger(
+      input.negotiatedUnitPriceHtMillimes,
+      'negotiatedUnitPriceHtMillimes'
+    )
+    if (negotiated > unitPrice) {
+      throw new Error('Negotiated unit price cannot exceed catalogue price')
+    }
+
+    netUnitPriceHtMillimes = negotiated
+    lineHtMillimes = negotiated * quantity
+    discountMillimes = gross - lineHtMillimes
+    discountPercent = gross > 0 ? (discountMillimes / gross) * 100 : 0
+  } else {
+    discountPercent = requirePercentage(input.discountPercent ?? 0, 'discountPercent')
+    discountMillimes = Math.round((gross * discountPercent) / 100)
+    lineHtMillimes = gross - discountMillimes
+    netUnitPriceHtMillimes =
+      quantity > 0 ? Math.round(lineHtMillimes / quantity) : unitPrice
+  }
+
+  const taxMillimes = Math.round((lineHtMillimes * taxPercent) / 100)
+  const lineTtcMillimes = lineHtMillimes + taxMillimes
+
+  return {
+    partId:
+      input.partId && Number.isInteger(input.partId) && input.partId > 0
+        ? input.partId
+        : null,
+    reference,
+    designation,
+    quantity,
+    unitPriceHtMillimes: unitPrice,
+    netUnitPriceHtMillimes,
+    discountPercent,
+    discountMillimes,
+    taxPercent,
+    lineHtMillimes,
+    taxMillimes,
+    lineTtcMillimes
+  }
+}
+
+function resolveGlobalDiscount(
+  input: FinalizeInvoiceInput,
+  totalBeforeDiscount: number
+): number {
+  const hasTarget = input.targetTotalTtcMillimes !== undefined
+  const hasDiscount = input.globalDiscountTtcMillimes !== undefined
+
+  if (hasTarget && hasDiscount) {
+    throw new Error('Use either a target total or a global discount, not both')
+  }
+
+  if (hasTarget) {
+    const target = requireNonNegativeInteger(
+      input.targetTotalTtcMillimes as number,
+      'targetTotalTtcMillimes'
+    )
+    if (target > totalBeforeDiscount) {
+      throw new Error('Target total cannot exceed the invoice total')
+    }
+    return totalBeforeDiscount - target
+  }
+
+  if (hasDiscount) {
+    const discount = requireNonNegativeInteger(
+      input.globalDiscountTtcMillimes as number,
+      'globalDiscountTtcMillimes'
+    )
+    if (discount > totalBeforeDiscount) {
+      throw new Error('Global discount cannot exceed the invoice total')
+    }
+    return discount
+  }
+
+  return 0
+}
+
+function cleanText(value?: string): string | null {
+  const text = value?.trim()
+  return text ? text : null
+}
+
+function requireText(value: string, field: string): string {
+  const text = value?.trim()
+  if (!text) throw new Error(`${field} is required`)
+  return text
+}
+
+function requirePositiveInteger(value: number, field: string): number {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${field} must be a positive integer`)
+  }
+  return value
+}
+
+function requireNonNegativeInteger(value: number, field: string): number {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${field} must be a non-negative integer`)
+  }
+  return value
+}
+
+function requirePercentage(value: number, field: string): number {
+  if (!Number.isFinite(value) || value < 0 || value > 100) {
+    throw new Error(`${field} must be between 0 and 100`)
+  }
+  return value
 }

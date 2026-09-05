@@ -419,3 +419,104 @@ button:disabled { cursor: not-allowed; opacity: .58; }
   .settings-card.backup-card { grid-column: auto; }
   .backup-actions { grid-template-columns: 1fr; }
 }
+
+
+/* Negotiated invoice pricing */
+.negotiated-lines { overflow-x: auto; }
+.negotiated-line {
+  min-width: 650px;
+  grid-template-columns: minmax(165px, 1.45fr) 52px 90px 112px 100px 32px;
+}
+.catalogue-price {
+  display: flex; flex-direction: column; gap: 4px; text-align: end;
+}
+.catalogue-price span,
+.negotiated-price > span {
+  color: var(--ink-500); font-size: 9.5px; font-weight: 700;
+}
+.catalogue-price strong { font-size: 10px; }
+.negotiated-price { display: flex; flex-direction: column; gap: 4px; }
+.negotiated-price > div {
+  height: 30px; display: flex; align-items: center; overflow: hidden;
+  border: 1px solid var(--line-strong); border-radius: 6px; background: white;
+}
+.negotiated-price > div:focus-within {
+  border-color: #98b7d4; box-shadow: 0 0 0 3px rgba(31,96,157,.08);
+}
+.negotiated-price input {
+  width: 100%; min-width: 0; border: 0; outline: 0; padding: 0 6px;
+  background: transparent; text-align: end; font-size: 10px; font-weight: 800;
+}
+.negotiated-price small {
+  align-self: stretch; display: grid; place-items: center; padding: 0 6px;
+  border-left: 1px solid var(--line); color: var(--ink-500); background: #fafbfc; font-size: 8px; font-weight: 800;
+}
+.negotiated-price.discounted > div { border-color: #b8d9ca; background: #fbfefc; }
+.negotiated-price.discounted input { color: var(--success); }
+.negotiated-total small { color: var(--success); font-size: 8.5px; font-weight: 800; }
+.price-validation {
+  margin-top: 10px; padding: 8px 10px; border: 1px solid #edc4c1; border-radius: 7px;
+  background: var(--danger-soft); color: #8f3636; font-size: 9.5px; font-weight: 700;
+}
+
+.commercial-adjustment { background: #fbfcfd; }
+.adjustment-control {
+  display: grid; grid-template-columns: auto minmax(180px, 1fr) minmax(170px, .8fr);
+  gap: 10px; align-items: end;
+}
+.adjustment-mode {
+  height: 37px; display: flex; padding: 3px; border: 1px solid var(--line-strong);
+  border-radius: 8px; background: white;
+}
+.adjustment-mode button {
+  border: 0; border-radius: 5px; background: transparent; padding: 0 9px;
+  color: var(--ink-500); font-size: 9.5px; font-weight: 800; cursor: pointer;
+}
+.adjustment-mode button.active {
+  color: var(--brand-800); background: var(--brand-100);
+}
+.adjustment-input { display: flex; flex-direction: column; gap: 5px; }
+.adjustment-input > span { color: var(--ink-500); font-size: 9.5px; font-weight: 700; }
+.adjustment-input > div {
+  height: 37px; display: flex; align-items: center; border: 1px solid var(--line-strong);
+  border-radius: 8px; overflow: hidden; background: white;
+}
+.adjustment-input > div:focus-within {
+  border-color: #98b7d4; box-shadow: 0 0 0 3px rgba(31,96,157,.08);
+}
+.adjustment-input input {
+  flex: 1; min-width: 0; border: 0; outline: 0; padding: 0 10px;
+  text-align: end; font-size: 12px; font-weight: 850;
+}
+.adjustment-input small {
+  align-self: stretch; display: grid; place-items: center; padding: 0 9px;
+  border-left: 1px solid var(--line); background: var(--surface-soft);
+  color: var(--ink-500); font-size: 9px; font-weight: 850;
+}
+.adjustment-result {
+  height: 37px; display: flex; align-items: center; gap: 8px; padding: 0 10px;
+  border: 1px solid #c8ddd2; border-radius: 8px; background: var(--success-soft); color: var(--success);
+}
+.adjustment-result > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.adjustment-result span { font-size: 8px; font-weight: 750; }
+.adjustment-result strong { font-size: 10.5px; }
+.locked-discount-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: white;
+  color: var(--ink-500); font-size: 10px;
+}
+.locked-discount-summary strong { color: var(--success); font-size: 12px; }
+.invoice-discount-summary { width: min(360px, 100%); }
+.editor-summary .discount-row { color: var(--success); }
+.editor-summary .discount-row strong { color: var(--success); }
+
+.discount-paper-table { font-size: 7px; }
+.discount-paper-table th { font-size: 5.9px; padding-left: 4px; padding-right: 4px; }
+.discount-paper-table td { padding-left: 4px; padding-right: 4px; }
+.paper-totals .paper-discount span,
+.paper-totals .paper-discount strong { color: #2f6e55; }
+
+@media (max-width: 900px) {
+  .adjustment-control { grid-template-columns: 1fr; }
+  .adjustment-mode { width: fit-content; }
+}

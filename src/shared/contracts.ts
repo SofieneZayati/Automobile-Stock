@@ -80,6 +80,7 @@ export type CreateInvoiceLineInput = {
   designation: string
   quantity: number
   unitPriceHtMillimes: number
+  negotiatedUnitPriceHtMillimes?: number
   discountPercent?: number
   taxPercent?: number
 }
@@ -89,6 +90,8 @@ export type FinalizeInvoiceInput = {
   customerAddress?: string
   customerTaxId?: string
   notes?: string
+  targetTotalTtcMillimes?: number
+  globalDiscountTtcMillimes?: number
   lines: CreateInvoiceLineInput[]
 }
 
@@ -97,6 +100,7 @@ export type FinalizedInvoiceLine = {
   designation: string
   quantity: number
   unitPriceHtMillimes: number
+  netUnitPriceHtMillimes: number
   discountMillimes: number
   taxPercent: number
   lineHtMillimes: number
@@ -114,7 +118,9 @@ export type FinalizedInvoice = {
   finalizedAt: string
   subtotalHtMillimes: number
   discountMillimes: number
+  globalDiscountTtcMillimes: number
   taxMillimes: number
+  totalBeforeGlobalDiscountTtcMillimes: number
   totalTtcMillimes: number
   lines: FinalizedInvoiceLine[]
 }

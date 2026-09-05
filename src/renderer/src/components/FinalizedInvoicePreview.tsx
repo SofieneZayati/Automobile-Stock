@@ -10,12 +10,19 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
   onClose: () => void
 }): JSX.Element {
   const locale = localeFor(lang)
-  const finalizedAt = new Date(invoice.finalizedAt.replace(' ', 'T') + 'Z').toLocaleString(locale)
+  const finalizedAt = new Date(
+    invoice.finalizedAt.replace(' ', 'T') + 'Z'
+  ).toLocaleString(locale)
+  const netHt = invoice.subtotalHtMillimes - invoice.discountMillimes
 
   return (
-    <div className="modal-backdrop invoice-preview-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose()
-    }}>
+    <div
+      className="modal-backdrop invoice-preview-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
       <div className="invoice-preview-modal">
         <div className="invoice-preview-actions">
           <div>
@@ -23,8 +30,12 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
             <strong>{invoice.number}</strong>
           </div>
           <div>
-            <button className="secondary-button" type="button" onClick={() => window.print()}><Printer size={17} />Imprimer</button>
-            <button className="icon-button" type="button" onClick={onClose}><X size={18} /></button>
+            <button className="secondary-button" type="button" onClick={() => window.print()}>
+              <Printer size={17} />Imprimer
+            </button>
+            <button className="icon-button" type="button" onClick={onClose}>
+              <X size={18} />
+            </button>
           </div>
         </div>
 
@@ -51,7 +62,9 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
                 <span className="paper-label">CLIENT</span>
                 <strong>{invoice.customerName}</strong>
                 {invoice.customerAddress && <small>{invoice.customerAddress}</small>}
-                {invoice.customerTaxId && <small>Identifiant fiscal: {invoice.customerTaxId}</small>}
+                {invoice.customerTaxId && (
+                  <small>Identifiant fiscal: {invoice.customerTaxId}</small>
+                )}
               </div>
               <div>
                 <span className="paper-label">ÉTABLISSEMENT</span>
@@ -60,18 +73,41 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
               </div>
             </div>
 
-            <table className="paper-table">
-              <thead><tr><th>Réf.</th><th>Désignation</th><th className="number">Qté</th><th className="number">P.U. HT</th><th className="number">Montant HT</th></tr></thead>
+            <table className="paper-table discount-paper-table">
+              <thead>
+                <tr>
+                  <th>Réf.</th>
+                  <th>Désignation</th>
+                  <th className="number">Qté</th>
+                  <th className="number">P.U. client HT</th>
+                  <th className="number">Remise</th>
+                  <th className="number">Montant HT</th>
+                </tr>
+              </thead>
               <tbody>
-                {invoice.lines.map((line, index) => (
-                  <tr key={`${line.reference}-${index}`}>
-                    <td>{line.reference}</td>
-                    <td>{line.designation}</td>
-                    <td className="number">{line.quantity}</td>
-                    <td className="number">{formatTnd(line.unitPriceHtMillimes, locale)}</td>
-                    <td className="number">{formatTnd(line.lineHtMillimes, locale)}</td>
-                  </tr>
-                ))}
+                {invoice.lines.map((line, index) => {
+                  const unitDiscount =
+                    line.unitPriceHtMillimes - line.netUnitPriceHtMillimes
+
+                  return (
+                    <tr key={`${line.reference}-${index}`}>
+                      <td>{line.reference}</td>
+                      <td>{line.designation}</td>
+                      <td className="number">{line.quantity}</td>
+                      <td className="number">
+                        {formatTnd(line.netUnitPriceHtMillimes, locale)}
+                      </td>
+                      <td className="number">
+                        {unitDiscount > 0
+                          ? `- ${formatTnd(unitDiscount, locale)} /u`
+                          : '—'}
+                      </td>
+                      <td className="number">
+                        {formatTnd(line.lineHtMillimes, locale)}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
 
@@ -79,13 +115,55 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
               <div className="paper-note">
                 <span className="paper-label">NOTE</span>
                 <p>{invoice.notes || 'Merci pour votre confiance.'}</p>
-                <small>Document final enregistré dans Ben Mahmoud Stock.</small>
+                <small>Document final: les prix et remises sont figés.</small>
               </div>
+
               <div className="paper-totals">
-                <div><span>Sous-total HT</span><strong>{formatTnd(invoice.subtotalHtMillimes, locale)}</strong></div>
-                {invoice.discountMillimes > 0 && <div><span>Remise</span><strong>- {formatTnd(invoice.discountMillimes, locale)}</strong></div>}
-                <div><span>TVA</span><strong>{formatTnd(invoice.taxMillimes, locale)}</strong></div>
-                <div className="paper-grand-total"><span>Total TTC</span><strong>{formatTnd(invoice.totalTtcMillimes, locale)}</strong></div>
+                <div>
+                  <span>Total HT catalogue</span>
+                  <strong>{formatTnd(invoice.subtotalHtMillimes, locale)}</strong>
+                </div>
+
+                {invoice.discountMillimes > 0 && (
+                  <div className="paper-discount">
+                    <span>Remises articles</span>
+                    <strong>- {formatTnd(invoice.discountMillimes, locale)}</strong>
+                  </div>
+                )}
+
+                <div>
+                  <span>Total HT net</span>
+                  <strong>{formatTnd(netHt, locale)}</strong>
+                </div>
+                <div>
+                  <span>TVA</span>
+                  <strong>{formatTnd(invoice.taxMillimes, locale)}</strong>
+                </div>
+
+                {invoice.globalDiscountTtcMillimes > 0 && (
+                  <>
+                    <div>
+                      <span>Sous-total TTC</span>
+                      <strong>
+                        {formatTnd(
+                          invoice.totalBeforeGlobalDiscountTtcMillimes,
+                          locale
+                        )}
+                      </strong>
+                    </div>
+                    <div className="paper-discount">
+                      <span>Remise globale</span>
+                      <strong>
+                        - {formatTnd(invoice.globalDiscountTtcMillimes, locale)}
+                      </strong>
+                    </div>
+                  </>
+                )}
+
+                <div className="paper-grand-total">
+                  <span>Total TTC à payer</span>
+                  <strong>{formatTnd(invoice.totalTtcMillimes, locale)}</strong>
+                </div>
               </div>
             </div>
 

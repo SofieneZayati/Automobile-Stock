@@ -144,5 +144,14 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_invoice_lines_invoice ON invoice_lines(invoice_id);
       CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id, created_at DESC);
     `
+  },
+  {
+    version: 3,
+    name: 'invoice_global_discount',
+    sql: `
+      ALTER TABLE invoices
+        ADD COLUMN global_discount_ttc_millimes INTEGER NOT NULL DEFAULT 0
+        CHECK (global_discount_ttc_millimes >= 0);
+    `
   }
 ]
