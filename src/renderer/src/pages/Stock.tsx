@@ -149,7 +149,7 @@ export function Stock({
       setError('')
       setNotice('')
       const result = await window.desktop.parts.exportCsv(
-        query,
+        '',
         includeArchived
       )
       if (result) {
@@ -182,6 +182,7 @@ export function Stock({
             type="button"
             onClick={() => void exportCsv()}
             disabled={exporting}
+            title="Exporter le catalogue complet en CSV"
           >
             <Download size={18} />
             {exporting ? 'Export…' : 'Exporter CSV'}
