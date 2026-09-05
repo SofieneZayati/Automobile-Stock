@@ -119,7 +119,7 @@ export function Settings({ lang }: { lang: Language }): JSX.Element {
         setBusiness(refreshed)
         setMessage({
           type: 'success',
-          text: `Sauvegarde restaurée et vérifiée (${result.integrity}). Les données ont été rechargées.`
+          text: `Sauvegarde restaurée et vérifiée (${result.integrity}). Une copie de sécurité des données précédentes a été conservée${result.safetyBackupPath ? `: ${result.safetyBackupPath}` : '.'}`
         })
       }
     } catch (cause) {

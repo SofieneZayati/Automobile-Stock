@@ -1,8 +1,18 @@
 import { dialog, app } from 'electron'
 import { DatabaseSync } from 'node:sqlite'
-import { copyFileSync, rmSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
-import { closeDatabase, getDatabase, getDatabasePath, initializeDatabase } from '../database'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  rmSync
+} from 'node:fs'
+import { join, resolve } from 'node:path'
+import {
+  closeDatabase,
+  getDatabase,
+  getDatabasePath,
+  initializeDatabase
+} from '../database'
 import type { BackupResult, RestoreResult } from '../../shared/contracts'
 
 export async function createBackup(): Promise<BackupResult | null> {
@@ -36,7 +46,10 @@ export async function restoreBackup(): Promise<RestoreResult | null> {
     defaultPath: app.getPath('documents'),
     buttonLabel: 'Restaurer',
     properties: ['openFile'],
-    filters: [{ name: 'Sauvegarde SQLite', extensions: ['sqlite3', 'db', 'sqlite'] }]
+    filters: [{
+      name: 'Sauvegarde SQLite',
+      extensions: ['sqlite3', 'db', 'sqlite']
+    }]
   })
 
   if (result.canceled || result.filePaths.length === 0) return null
@@ -45,30 +58,80 @@ export async function restoreBackup(): Promise<RestoreResult | null> {
   const destination = getDatabasePath()
 
   if (resolve(source) === resolve(destination)) {
-    throw new Error('Le fichier sélectionné est déjà la base de données active.')
+    throw new Error(
+      'Le fichier sélectionné est déjà la base de données active.'
+    )
   }
 
   const integrity = validateBackup(source)
+  const activeDb = getDatabase()
+  activeDb.exec('PRAGMA wal_checkpoint(FULL);')
 
   closeDatabase()
+
+  const safetyBackupPath = createPreRestoreSafetyCopy(destination)
+
   try {
     rmSync(`${destination}-wal`, { force: true })
     rmSync(`${destination}-shm`, { force: true })
     copyFileSync(source, destination)
     initializeDatabase()
   } catch (error) {
-    initializeDatabase()
+    try {
+      closeDatabase()
+      if (safetyBackupPath && existsSync(safetyBackupPath)) {
+        copyFileSync(safetyBackupPath, destination)
+      }
+      initializeDatabase()
+    } catch {
+      // Preserve the original restore error. The safety file remains on disk.
+    }
     throw error
   }
 
-  return { path: source, integrity }
+  return {
+    path: source,
+    integrity,
+    safetyBackupPath
+  }
+}
+
+function createPreRestoreSafetyCopy(destination: string): string | null {
+  if (!existsSync(destination)) return null
+
+  const folder = join(app.getPath('userData'), 'restore-safety')
+  mkdirSync(folder, { recursive: true })
+
+  const stamp = new Date()
+    .toISOString()
+    .replaceAll(':', '-')
+    .replaceAll('.', '-')
+  const target = join(
+    folder,
+    `Ben-Mahmoud-Stock-Pre-Restore-${stamp}.sqlite3`
+  )
+
+  copyFileSync(destination, target)
+  pruneSafetyCopies(folder)
+  return target
+}
+
+function pruneSafetyCopies(folder: string): void {
+  // Keep cleanup intentionally conservative for now. Safety copies are
+  // small compared with the risk of losing the shop's active database.
+  void folder
 }
 
 function validateBackup(path: string): string {
   const candidate = new DatabaseSync(path)
   try {
-    const integrityRow = candidate.prepare('PRAGMA quick_check;').get() as Record<string, string> | undefined
-    const integrity = integrityRow ? Object.values(integrityRow)[0] : 'unknown'
+    const integrityRow = candidate.prepare(
+      'PRAGMA quick_check;'
+    ).get() as Record<string, string> | undefined
+    const integrity = integrityRow
+      ? Object.values(integrityRow)[0]
+      : 'unknown'
+
     if (integrity !== 'ok') {
       throw new Error(`La sauvegarde SQLite est invalide: ${integrity}`)
     }
@@ -79,17 +142,15 @@ function validateBackup(path: string): string {
     `).get()
 
     if (!migrationTable) {
-      throw new Error('Ce fichier ne ressemble pas à une sauvegarde Ben Mahmoud Stock.')
+      throw new Error(
+        'Ce fichier ne ressemble pas à une sauvegarde Ben Mahmoud Stock.'
+      )
     }
 
     return integrity
   } finally {
     candidate.close()
   }
-}
-
-export function describeBackupPath(path: string): string {
-  return join(dirname(path), basename(path))
 }
 
 function escapeSqlString(value: string): string {

@@ -226,6 +226,7 @@ export type BackupResult = {
 export type RestoreResult = {
   path: string
   integrity: string
+  safetyBackupPath: string | null
 }
 
 export type DesktopApi = {
