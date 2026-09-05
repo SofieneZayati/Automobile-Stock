@@ -11,6 +11,7 @@ type PartRow = {
   category_id: number | null
   category_name: string | null
   supplier_id: number | null
+  supplier_name: string | null
   purchase_price_millimes: number
   sale_price_millimes: number
   quantity: number
@@ -32,6 +33,7 @@ const partSelect = `
     p.category_id,
     c.name AS category_name,
     p.supplier_id,
+    s.name AS supplier_name,
     p.purchase_price_millimes,
     p.sale_price_millimes,
     p.quantity,
@@ -43,6 +45,7 @@ const partSelect = `
     p.updated_at
   FROM parts p
   LEFT JOIN categories c ON c.id = p.category_id
+  LEFT JOIN suppliers s ON s.id = p.supplier_id
 `
 
 export function listParts(query = '', includeArchived = false): Part[] {
@@ -60,11 +63,12 @@ export function listParts(query = '', includeArchived = false): Part[] {
             OR COALESCE(p.oem_reference, '') LIKE ? COLLATE NOCASE
             OR COALESCE(p.vehicle_compatibility, '') LIKE ? COLLATE NOCASE
             OR COALESCE(c.name, '') LIKE ? COLLATE NOCASE
+            OR COALESCE(s.name, '') LIKE ? COLLATE NOCASE
             OR COALESCE(p.location, '') LIKE ? COLLATE NOCASE
           )
         ORDER BY p.is_active DESC, p.designation COLLATE NOCASE, p.reference COLLATE NOCASE
         LIMIT 500
-      `).all(...Array(6).fill(`%${needle}%`)) as PartRow[]
+      `).all(...Array(7).fill(`%${needle}%`)) as PartRow[]
     : db.prepare(`
         ${partSelect}
         WHERE ${activeClause}
@@ -93,19 +97,21 @@ export function createPart(input: CreatePartInput): Part {
     const categoryId = input.categoryName?.trim()
       ? ensureCategory(input.categoryName.trim())
       : null
+    const supplierId = normalizeSupplierId(input.supplierId)
 
     const result = db.prepare(`
       INSERT INTO parts(
         reference, designation, oem_reference, vehicle_compatibility, category_id,
-        purchase_price_millimes, sale_price_millimes, quantity,
+        supplier_id, purchase_price_millimes, sale_price_millimes, quantity,
         low_stock_threshold, location, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       reference,
       designation,
       optionalText(input.oemReference),
       optionalText(input.vehicleCompatibility),
       categoryId,
+      supplierId,
       purchasePrice,
       salePrice,
       initialQuantity,
@@ -149,6 +155,7 @@ export function updatePart(input: UpdatePartInput): Part {
     const categoryId = input.categoryName?.trim()
       ? ensureCategory(input.categoryName.trim())
       : null
+    const supplierId = normalizeSupplierId(input.supplierId)
 
     const result = db.prepare(`
       UPDATE parts
@@ -158,6 +165,7 @@ export function updatePart(input: UpdatePartInput): Part {
         oem_reference = ?,
         vehicle_compatibility = ?,
         category_id = ?,
+        supplier_id = ?,
         purchase_price_millimes = ?,
         sale_price_millimes = ?,
         low_stock_threshold = ?,
@@ -171,6 +179,7 @@ export function updatePart(input: UpdatePartInput): Part {
       optionalText(input.oemReference),
       optionalText(input.vehicleCompatibility),
       categoryId,
+      supplierId,
       purchasePrice,
       salePrice,
       threshold,
@@ -268,6 +277,20 @@ export function getLowStockParts(limit = 8): Part[] {
   return rows.map(mapPart)
 }
 
+function normalizeSupplierId(value?: number): number | null {
+  if (value === undefined || value === null || value === 0) return null
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error('supplierId must be a positive integer')
+  }
+
+  const row = getDatabase().prepare(
+    'SELECT id FROM suppliers WHERE id = ?'
+  ).get(value) as { id: number } | undefined
+
+  if (!row) throw new Error('Supplier not found')
+  return row.id
+}
+
 function ensureCategory(name: string): number {
   const db = getDatabase()
   db.prepare('INSERT OR IGNORE INTO categories(name) VALUES (?)').run(name)
@@ -293,6 +316,7 @@ function mapPart(row: PartRow): Part {
     categoryId: row.category_id,
     categoryName: row.category_name,
     supplierId: row.supplier_id,
+    supplierName: row.supplier_name,
     purchasePriceMillimes: row.purchase_price_millimes,
     salePriceMillimes: row.sale_price_millimes,
     quantity: row.quantity,

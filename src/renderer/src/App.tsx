@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Invoices } from './pages/Invoices'
 import { InvoiceHistory } from './pages/InvoiceHistory'
 import { Clients } from './pages/Clients'
+import { Suppliers } from './pages/Suppliers'
 import { Settings } from './pages/Settings'
 import { Stock } from './pages/Stock'
 import { Language } from './i18n'
@@ -42,6 +43,7 @@ export default function App(): JSX.Element {
           {page === 'invoices' && <Invoices lang={lang} />}
           {page === 'invoiceHistory' && <InvoiceHistory lang={lang} onNavigate={setPage} />}
           {page === 'clients' && <Clients lang={lang} />}
+          {page === 'suppliers' && <Suppliers lang={lang} />}
           {page === 'settings' && <Settings lang={lang} />}
         </div>
       </main>

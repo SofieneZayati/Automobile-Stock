@@ -1,9 +1,9 @@
 import type { JSX } from 'react'
-import { Boxes, FileText, Gauge, Settings, Users } from 'lucide-react'
+import { Boxes, FileText, Gauge, Settings, Truck, Users } from 'lucide-react'
 import { Brand } from './Brand'
 import { Language, t } from '../i18n'
 
-export type Page = 'dashboard' | 'stock' | 'invoices' | 'invoiceHistory' | 'clients' | 'settings'
+export type Page = 'dashboard' | 'stock' | 'invoices' | 'invoiceHistory' | 'clients' | 'suppliers' | 'settings'
 
 type Props = {
   page: Page
@@ -17,6 +17,7 @@ export function Sidebar({ page, lang, onNavigate }: Props): JSX.Element {
     { id: 'stock' as const, label: t(lang, 'stock'), icon: Boxes },
     { id: 'invoiceHistory' as const, label: t(lang, 'invoices'), icon: FileText },
     { id: 'clients' as const, label: t(lang, 'clients'), icon: Users },
+    { id: 'suppliers' as const, label: t(lang, 'suppliers'), icon: Truck },
     { id: 'settings' as const, label: t(lang, 'settings'), icon: Settings }
   ]
 

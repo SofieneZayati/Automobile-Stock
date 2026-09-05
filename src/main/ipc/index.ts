@@ -1,11 +1,12 @@
 import { ipcMain } from 'electron'
 import { adjustStock, createPart, listParts, setPartActive, updatePart } from '../repositories/parts'
 import { createClient, listClients, updateClient } from '../repositories/clients'
+import { createSupplier, listSuppliers, updateSupplier } from '../repositories/suppliers'
 import { getDashboardOverview } from '../services/dashboard'
 import { finalizeInvoice, getInvoice, listInvoices } from '../services/invoices'
 import { createBackup, restoreBackup } from '../services/backup'
 import { getBusinessSettings, updateBusinessSettings } from '../services/settings'
-import type { AdjustStockInput, BusinessSettings, CreateClientInput, CreatePartInput, FinalizeInvoiceInput, UpdateClientInput, UpdatePartInput } from '../../shared/contracts'
+import type { AdjustStockInput, BusinessSettings, CreateClientInput, CreatePartInput, CreateSupplierInput, FinalizeInvoiceInput, UpdateClientInput, UpdatePartInput, UpdateSupplierInput } from '../../shared/contracts'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('parts:list', (_event, query?: string, includeArchived?: boolean) =>
@@ -23,6 +24,12 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('clients:create', (_event, input: CreateClientInput) => createClient(input))
   ipcMain.handle('clients:update', (_event, input: UpdateClientInput) => updateClient(input))
+
+  ipcMain.handle('suppliers:list', (_event, query?: string) =>
+    listSuppliers(typeof query === 'string' ? query : '')
+  )
+  ipcMain.handle('suppliers:create', (_event, input: CreateSupplierInput) => createSupplier(input))
+  ipcMain.handle('suppliers:update', (_event, input: UpdateSupplierInput) => updateSupplier(input))
 
   ipcMain.handle('dashboard:overview', () => getDashboardOverview())
 

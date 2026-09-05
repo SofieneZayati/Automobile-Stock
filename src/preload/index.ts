@@ -4,10 +4,12 @@ import type {
   BusinessSettings,
   CreateClientInput,
   CreatePartInput,
+  CreateSupplierInput,
   DesktopApi,
   FinalizeInvoiceInput,
   UpdateClientInput,
-  UpdatePartInput
+  UpdatePartInput,
+  UpdateSupplierInput
 } from '../shared/contracts'
 
 const api: DesktopApi = {
@@ -25,6 +27,11 @@ const api: DesktopApi = {
     list: (query = '') => ipcRenderer.invoke('clients:list', query),
     create: (input: CreateClientInput) => ipcRenderer.invoke('clients:create', input),
     update: (input: UpdateClientInput) => ipcRenderer.invoke('clients:update', input)
+  },
+  suppliers: {
+    list: (query = '') => ipcRenderer.invoke('suppliers:list', query),
+    create: (input: CreateSupplierInput) => ipcRenderer.invoke('suppliers:create', input),
+    update: (input: UpdateSupplierInput) => ipcRenderer.invoke('suppliers:update', input)
   },
   dashboard: {
     overview: () => ipcRenderer.invoke('dashboard:overview')

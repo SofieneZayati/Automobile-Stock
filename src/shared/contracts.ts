@@ -24,6 +24,7 @@ export type Part = {
   categoryId: number | null
   categoryName: string | null
   supplierId: number | null
+  supplierName: string | null
   purchasePriceMillimes: number
   salePriceMillimes: number
   quantity: number
@@ -33,6 +34,29 @@ export type Part = {
   isActive: boolean
   createdAt: string
   updatedAt: string
+}
+
+export type Supplier = {
+  id: number
+  name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type CreateSupplierInput = {
+  name: string
+  phone?: string
+  email?: string
+  address?: string
+  notes?: string
+}
+
+export type UpdateSupplierInput = CreateSupplierInput & {
+  id: number
 }
 
 export type Client = {
@@ -64,6 +88,7 @@ export type CreatePartInput = {
   oemReference?: string
   vehicleCompatibility?: string
   categoryName?: string
+  supplierId?: number
   purchasePriceMillimes?: number
   salePriceMillimes: number
   initialQuantity?: number
@@ -79,6 +104,7 @@ export type UpdatePartInput = {
   oemReference?: string
   vehicleCompatibility?: string
   categoryName?: string
+  supplierId?: number
   purchasePriceMillimes?: number
   salePriceMillimes: number
   lowStockThreshold?: number
@@ -202,6 +228,11 @@ export type DesktopApi = {
     list: (query?: string) => Promise<Client[]>
     create: (input: CreateClientInput) => Promise<Client>
     update: (input: UpdateClientInput) => Promise<Client>
+  }
+  suppliers: {
+    list: (query?: string) => Promise<Supplier[]>
+    create: (input: CreateSupplierInput) => Promise<Supplier>
+    update: (input: UpdateSupplierInput) => Promise<Supplier>
   }
   dashboard: {
     overview: () => Promise<DashboardOverview>

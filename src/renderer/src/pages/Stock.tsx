@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type JSX } f
 import { Archive, ArchiveRestore, PackagePlus, Pencil, PlusCircle, Search, X } from 'lucide-react'
 import { Language, localeFor, t } from '../i18n'
 import { formatTnd } from '../lib/money'
-import type { CreatePartInput, Part, UpdatePartInput } from '../../../shared/contracts'
+import type { CreatePartInput, Part, Supplier, UpdatePartInput } from '../../../shared/contracts'
 
 export function Stock({ lang }: { lang: Language }): JSX.Element {
   const [query, setQuery] = useState('')
@@ -85,7 +85,7 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
 
         <div className="table-wrap">
           <table className="data-table stock-table">
-            <thead><tr><th>Référence</th><th>Désignation</th><th>Compatibilité</th><th>Catégorie</th><th>Empl.</th><th>Stock</th><th>Prix vente</th><th></th></tr></thead>
+            <thead><tr><th>Référence</th><th>Désignation</th><th>Compatibilité</th><th>Catégorie</th><th>Fournisseur</th><th>Empl.</th><th>Stock</th><th>Prix vente</th><th></th></tr></thead>
             <tbody>
               {parts.map((part) => {
                 const low = part.quantity <= part.lowStockThreshold
@@ -98,6 +98,7 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
                     </td>
                     <td>{part.vehicleCompatibility || '—'}</td>
                     <td><span className="soft-pill">{part.categoryName || 'Sans catégorie'}</span></td>
+                    <td>{part.supplierName || '—'}</td>
                     <td><span className="location-pill">{part.location || '—'}</span></td>
                     <td>
                       {part.isActive ? (
@@ -172,6 +173,7 @@ function CreatePartModal({ lang, onClose, onCreated }: { lang: Language; onClose
       oemReference: String(data.get('oemReference') || ''),
       vehicleCompatibility: String(data.get('vehicleCompatibility') || ''),
       categoryName: String(data.get('categoryName') || ''),
+      supplierId: optionalPositiveInteger(data.get('supplierId')),
       purchasePriceMillimes: toMillimes(data.get('purchasePrice')),
       salePriceMillimes: toMillimes(data.get('salePrice')),
       initialQuantity: toInteger(data.get('initialQuantity')),
@@ -206,6 +208,7 @@ function CreatePartModal({ lang, onClose, onCreated }: { lang: Language; onClose
           <label className="field"><span>Référence OEM</span><input name="oemReference" placeholder="Ex. 165469466R" /></label>
           <label className="field"><span>Compatibilité véhicule</span><input name="vehicleCompatibility" placeholder="Renault Clio IV" /></label>
           <label className="field"><span>Catégorie</span><input name="categoryName" placeholder="Filtration" /></label>
+          <SupplierSelect />
           <label className="field"><span>Emplacement</span><input name="location" placeholder="A-04" /></label>
           <label className="field"><span>Prix achat (DT)</span><input name="purchasePrice" inputMode="decimal" placeholder="0.000" /></label>
           <label className="field"><span>Prix vente (DT) *</span><input name="salePrice" required inputMode="decimal" placeholder="0.000" /></label>
@@ -241,6 +244,7 @@ function EditPartModal({ part, onClose, onSaved }: {
       oemReference: String(data.get('oemReference') || ''),
       vehicleCompatibility: String(data.get('vehicleCompatibility') || ''),
       categoryName: String(data.get('categoryName') || ''),
+      supplierId: optionalPositiveInteger(data.get('supplierId')),
       purchasePriceMillimes: toMillimes(data.get('purchasePrice')),
       salePriceMillimes: toMillimes(data.get('salePrice')),
       lowStockThreshold: toInteger(data.get('lowStockThreshold')),
@@ -280,6 +284,7 @@ function EditPartModal({ part, onClose, onSaved }: {
           <label className="field"><span>Référence OEM</span><input name="oemReference" defaultValue={part.oemReference || ''} /></label>
           <label className="field"><span>Compatibilité véhicule</span><input name="vehicleCompatibility" defaultValue={part.vehicleCompatibility || ''} /></label>
           <label className="field"><span>Catégorie</span><input name="categoryName" defaultValue={part.categoryName || ''} /></label>
+          <SupplierSelect defaultSupplierId={part.supplierId} />
           <label className="field"><span>Emplacement</span><input name="location" defaultValue={part.location || ''} /></label>
           <label className="field"><span>Prix achat (DT)</span><input name="purchasePrice" inputMode="decimal" defaultValue={editableTnd(part.purchasePriceMillimes)} /></label>
           <label className="field"><span>Prix vente (DT) *</span><input name="salePrice" required inputMode="decimal" defaultValue={editableTnd(part.salePriceMillimes)} /></label>
@@ -344,6 +349,46 @@ function AdjustStockModal({ part, onClose, onSaved }: { part: Part; onClose: () 
   )
 }
 
+function SupplierSelect({
+  defaultSupplierId
+}: {
+  defaultSupplierId?: number | null
+}): JSX.Element {
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    void window.desktop.suppliers.list()
+      .then((result) => {
+        if (active) setSuppliers(result)
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  return (
+    <label className="field">
+      <span>Fournisseur</span>
+      <select name="supplierId" defaultValue={defaultSupplierId ?? ''}>
+        <option value="">
+          {loading ? 'Chargement…' : 'Aucun fournisseur'}
+        </option>
+        {suppliers.map((supplier) => (
+          <option key={supplier.id} value={supplier.id}>
+            {supplier.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
 function toMillimes(value: FormDataEntryValue | null): number {
   const raw = String(value || '').trim().replace(',', '.')
   if (!raw) return 0
@@ -354,6 +399,15 @@ function toMillimes(value: FormDataEntryValue | null): number {
 function toInteger(value: FormDataEntryValue | null): number {
   const parsed = Number(String(value || '0'))
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : -1
+}
+
+function optionalPositiveInteger(
+  value: FormDataEntryValue | null
+): number | undefined {
+  const raw = String(value || '').trim()
+  if (!raw) return undefined
+  const parsed = Number(raw)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
 }
 
 function editableTnd(millimes: number): string {
