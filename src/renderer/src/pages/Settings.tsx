@@ -3,12 +3,14 @@ import {
   CheckCircle2,
   DatabaseBackup,
   FileArchive,
+  History,
   Languages,
+  RefreshCw,
   RotateCcw,
   Save,
   ShieldCheck
 } from 'lucide-react'
-import type { BusinessSettings } from '../../../shared/contracts'
+import type { AuditEntry, BusinessSettings } from '../../../shared/contracts'
 import { Language } from '../i18n'
 
 export function Settings({
@@ -20,6 +22,8 @@ export function Settings({
 }): JSX.Element {
   const [busy, setBusy] = useState<'backup' | 'restore' | 'save' | null>(null)
   const [business, setBusiness] = useState<BusinessSettings | null>(null)
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
+  const [auditLoading, setAuditLoading] = useState(true)
   const [message, setMessage] = useState<{
     type: 'success' | 'error'
     text: string
@@ -46,6 +50,21 @@ export function Settings({
     return () => {
       active = false
     }
+  }, [])
+
+  async function loadAudit(): Promise<void> {
+    try {
+      setAuditLoading(true)
+      setAuditEntries(await window.desktop.audit.list(80))
+    } catch {
+      // Audit is supportive UI; primary settings remain usable if it fails.
+    } finally {
+      setAuditLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadAudit()
   }, [])
 
   const invoiceExample = useMemo(() => {
@@ -77,6 +96,7 @@ export function Settings({
         type: 'success',
         text: 'Paramètres enregistrés. Les prochaines factures utiliseront ces informations.'
       })
+      await loadAudit()
     } catch (cause) {
       setMessage({
         type: 'error',
@@ -129,6 +149,7 @@ export function Settings({
           type: 'success',
           text: `Sauvegarde restaurée et vérifiée (${result.integrity}). Une copie de sécurité des données précédentes a été conservée${result.safetyBackupPath ? `: ${result.safetyBackupPath}` : '.'}`
         })
+        await loadAudit()
       }
     } catch (cause) {
       setMessage({
@@ -397,7 +418,114 @@ export function Settings({
             </span>
           </div>
         </section>
+
+        <section className="panel settings-card audit-card">
+          <div className="settings-card-heading audit-heading">
+            <span className="settings-icon"><History size={20} /></span>
+            <div>
+              <h2>Journal d’activité</h2>
+              <p>
+                Dernières opérations importantes enregistrées localement:
+                stock, pièces, clients, factures et paramètres.
+              </p>
+            </div>
+            <button
+              className="icon-button"
+              type="button"
+              title="Actualiser le journal"
+              onClick={() => void loadAudit()}
+              disabled={auditLoading}
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
+
+          {auditLoading && auditEntries.length === 0 ? (
+            <div className="panel-empty">Chargement du journal…</div>
+          ) : auditEntries.length === 0 ? (
+            <div className="panel-empty">Aucune activité enregistrée.</div>
+          ) : (
+            <div className="audit-list">
+              {auditEntries.map((entry) => (
+                <div className="audit-row" key={entry.id}>
+                  <span className="audit-dot" />
+                  <div>
+                    <strong>{auditLabel(entry)}</strong>
+                    <small>{auditDetails(entry)}</small>
+                  </div>
+                  <time>{formatAuditDate(entry.createdAt, lang)}</time>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   )
+}
+
+
+function auditLabel(entry: AuditEntry): string {
+  const labels: Record<string, string> = {
+    CREATE: 'Création',
+    UPDATE: 'Modification',
+    ARCHIVE: 'Archivage',
+    RESTORE: 'Restauration',
+    STOCK_ADJUST: 'Mouvement de stock',
+    FINALIZE: 'Facture finalisée',
+    SAVE_DRAFT: 'Brouillon enregistré',
+    DELETE_DRAFT: 'Brouillon supprimé',
+    CANCEL: 'Facture annulée',
+    UPDATE_BUSINESS: 'Paramètres établissement modifiés'
+  }
+
+  const entityLabels: Record<string, string> = {
+    part: 'Pièce',
+    client: 'Client',
+    supplier: 'Fournisseur',
+    invoice: 'Facture',
+    settings: 'Paramètres'
+  }
+
+  const action = labels[entry.action] ?? entry.action
+  const entity = entityLabels[entry.entityType] ?? entry.entityType
+  return `${action} · ${entity}`
+}
+
+function auditDetails(entry: AuditEntry): string {
+  if (!entry.details) {
+    return entry.entityId ? `ID ${entry.entityId}` : 'Opération enregistrée'
+  }
+
+  const preferred = [
+    entry.details.number,
+    entry.details.reference,
+    entry.details.name,
+    entry.details.designation,
+    entry.details.reason
+  ].find((value) =>
+    typeof value === 'string' && value.trim().length > 0
+  )
+
+  if (typeof preferred === 'string') return preferred
+
+  if (typeof entry.details.delta === 'number') {
+    const delta = entry.details.delta
+    return `Variation stock: ${delta > 0 ? '+' : ''}${delta}`
+  }
+
+  return entry.entityId ? `ID ${entry.entityId}` : 'Détails enregistrés'
+}
+
+function formatAuditDate(value: string, lang: Language): string {
+  const parsed = new Date(value.replace(' ', 'T') + 'Z')
+  if (Number.isNaN(parsed.getTime())) return value
+
+  const locale =
+    lang === 'ar' ? 'ar-TN' : lang === 'en' ? 'en-TN' : 'fr-TN'
+
+  return parsed.toLocaleString(locale, {
+    dateStyle: 'short',
+    timeStyle: 'short'
+  })
 }

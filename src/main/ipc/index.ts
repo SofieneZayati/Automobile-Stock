@@ -7,6 +7,7 @@ import { cancelInvoice, deleteInvoiceDraft, finalizeInvoice, getInvoice, getInvo
 import { createBackup, restoreBackup } from '../services/backup'
 import { getBusinessSettings, updateBusinessSettings } from '../services/settings'
 import { exportPartsCsv } from '../services/exports'
+import { listAuditEntries } from '../services/audit'
 import type { AdjustStockInput, BusinessSettings, CreateClientInput, CreatePartInput, CreateSupplierInput, FinalizeInvoiceInput, UpdateClientInput, UpdatePartInput, UpdateSupplierInput } from '../../shared/contracts'
 
 export function registerIpcHandlers(): void {
@@ -63,5 +64,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('settings:business:get', () => getBusinessSettings())
   ipcMain.handle('settings:business:update', (_event, settings: BusinessSettings) =>
     updateBusinessSettings(settings)
+  )
+
+  ipcMain.handle('audit:list', (_event, limit?: number) =>
+    listAuditEntries(typeof limit === 'number' ? limit : 100)
   )
 }

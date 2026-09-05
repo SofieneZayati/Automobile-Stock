@@ -61,6 +61,9 @@ const api: DesktopApi = {
     getBusiness: () => ipcRenderer.invoke('settings:business:get'),
     updateBusiness: (settings: BusinessSettings) =>
       ipcRenderer.invoke('settings:business:update', settings)
+  },
+  audit: {
+    list: (limit = 100) => ipcRenderer.invoke('audit:list', limit)
   }
 }
 

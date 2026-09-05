@@ -1398,3 +1398,69 @@ button:disabled { cursor: not-allowed; opacity: .58; }
     text-align: start;
   }
 }
+
+
+/* Local audit log */
+.audit-card {
+  grid-column: 1 / -1;
+  overflow: hidden;
+}
+.audit-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.audit-list {
+  max-height: 380px;
+  overflow: auto;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.audit-row {
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 11px;
+  border-bottom: 1px solid #edf0f3;
+}
+.audit-row:last-child {
+  border-bottom: 0;
+}
+.audit-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-700);
+  box-shadow: 0 0 0 3px var(--brand-100);
+}
+.audit-row > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.audit-row strong {
+  font-size: 10px;
+}
+.audit-row small,
+.audit-row time {
+  color: var(--ink-500);
+  font-size: 8.6px;
+  line-height: 1.35;
+}
+.audit-row time {
+  white-space: nowrap;
+  text-align: end;
+}
+
+@media (max-width: 760px) {
+  .audit-row {
+    grid-template-columns: 12px minmax(0, 1fr);
+  }
+  .audit-row time {
+    grid-column: 2;
+    text-align: start;
+  }
+}

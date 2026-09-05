@@ -264,6 +264,15 @@ export type FinalizedInvoice = {
   lines: FinalizedInvoiceLine[]
 }
 
+export type AuditEntry = {
+  id: number
+  entityType: string
+  entityId: number | null
+  action: string
+  details: Record<string, unknown> | null
+  createdAt: string
+}
+
 export type StockExportResult = {
   path: string
   rowCount: number
@@ -321,5 +330,8 @@ export type DesktopApi = {
   settings: {
     getBusiness: () => Promise<BusinessSettings>
     updateBusiness: (settings: BusinessSettings) => Promise<BusinessSettings>
+  }
+  audit: {
+    list: (limit?: number) => Promise<AuditEntry[]>
   }
 }
