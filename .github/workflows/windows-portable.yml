@@ -40,9 +40,9 @@ jobs:
           if (-not $exe) {
             throw "Portable EXE was not produced."
           }
-          & $exe.FullName --smoke-test
-          if ($LASTEXITCODE -ne 0) {
-            throw "Portable EXE smoke test failed with exit code $LASTEXITCODE."
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList "--smoke-test" -PassThru -Wait
+          if ($process.ExitCode -ne 0) {
+            throw "Portable EXE smoke test failed with exit code $($process.ExitCode)."
           }
 
       - name: Upload portable app
