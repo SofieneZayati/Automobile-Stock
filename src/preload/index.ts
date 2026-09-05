@@ -22,7 +22,9 @@ const api: DesktopApi = {
     setActive: (partId: number, isActive: boolean) =>
       ipcRenderer.invoke('parts:set-active', partId, isActive),
     adjustStock: (input: AdjustStockInput) => ipcRenderer.invoke('parts:adjust-stock', input),
-    movements: (partId: number) => ipcRenderer.invoke('parts:movements', partId)
+    movements: (partId: number) => ipcRenderer.invoke('parts:movements', partId),
+    exportCsv: (query = '', includeArchived = false) =>
+      ipcRenderer.invoke('parts:export-csv', query, includeArchived)
   },
   clients: {
     list: (query = '') => ipcRenderer.invoke('clients:list', query),

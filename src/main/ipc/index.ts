@@ -6,6 +6,7 @@ import { getDashboardOverview } from '../services/dashboard'
 import { cancelInvoice, deleteInvoiceDraft, finalizeInvoice, getInvoice, getInvoiceDraft, listInvoiceDrafts, listInvoices, saveInvoiceDraft } from '../services/invoices'
 import { createBackup, restoreBackup } from '../services/backup'
 import { getBusinessSettings, updateBusinessSettings } from '../services/settings'
+import { exportPartsCsv } from '../services/exports'
 import type { AdjustStockInput, BusinessSettings, CreateClientInput, CreatePartInput, CreateSupplierInput, FinalizeInvoiceInput, UpdateClientInput, UpdatePartInput, UpdateSupplierInput } from '../../shared/contracts'
 
 export function registerIpcHandlers(): void {
@@ -19,6 +20,12 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('parts:adjust-stock', (_event, input: AdjustStockInput) => adjustStock(input))
   ipcMain.handle('parts:movements', (_event, partId: number) => listStockMovements(partId))
+  ipcMain.handle('parts:export-csv', (_event, query?: string, includeArchived?: boolean) =>
+    exportPartsCsv(
+      typeof query === 'string' ? query : '',
+      includeArchived === true
+    )
+  )
 
   ipcMain.handle('clients:list', (_event, query?: string) =>
     listClients(typeof query === 'string' ? query : '')

@@ -264,6 +264,11 @@ export type FinalizedInvoice = {
   lines: FinalizedInvoiceLine[]
 }
 
+export type StockExportResult = {
+  path: string
+  rowCount: number
+}
+
 export type BackupResult = {
   path: string
 }
@@ -283,6 +288,7 @@ export type DesktopApi = {
     setActive: (partId: number, isActive: boolean) => Promise<Part>
     adjustStock: (input: AdjustStockInput) => Promise<Part>
     movements: (partId: number) => Promise<StockMovement[]>
+    exportCsv: (query?: string, includeArchived?: boolean) => Promise<StockExportResult | null>
   }
   clients: {
     list: (query?: string) => Promise<Client[]>

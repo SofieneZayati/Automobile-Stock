@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type JSX } from 'react'
-import { Archive, ArchiveRestore, History, PackagePlus, Pencil, PlusCircle, Search, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Coins, Download, FilterX, History, PackageCheck, PackagePlus, Pencil, PlusCircle, Search, TriangleAlert, X } from 'lucide-react'
 import { Language, localeFor, t } from '../i18n'
 import { formatTnd } from '../lib/money'
 import type { CreatePartInput, Part, StockMovement, Supplier, UpdatePartInput } from '../../../shared/contracts'
@@ -14,6 +14,11 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
   const [adjusting, setAdjusting] = useState<Part | null>(null)
   const [historyPart, setHistoryPart] = useState<Part | null>(null)
   const [includeArchived, setIncludeArchived] = useState(false)
+  const [stockFilter, setStockFilter] = useState<'all' | 'available' | 'low' | 'out'>('all')
+  const [supplierFilter, setSupplierFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [exporting, setExporting] = useState(false)
+  const [notice, setNotice] = useState('')
 
   const load = useCallback(async (search = query) => {
     try {
@@ -32,7 +37,74 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
     return () => window.clearTimeout(timeout)
   }, [query, load])
 
-  const lowCount = useMemo(() => parts.filter((part) => part.isActive && part.quantity <= part.lowStockThreshold).length, [parts])
+  const suppliers = useMemo(
+    () => Array.from(
+      new Set(
+        parts
+          .map((part) => part.supplierName)
+          .filter((name): name is string => Boolean(name))
+      )
+    ).sort((a, b) => a.localeCompare(b)),
+    [parts]
+  )
+
+  const categories = useMemo(
+    () => Array.from(
+      new Set(
+        parts
+          .map((part) => part.categoryName)
+          .filter((name): name is string => Boolean(name))
+      )
+    ).sort((a, b) => a.localeCompare(b)),
+    [parts]
+  )
+
+  const visibleParts = useMemo(
+    () => parts.filter((part) => {
+      if (supplierFilter !== 'all' && part.supplierName !== supplierFilter) {
+        return false
+      }
+      if (categoryFilter !== 'all' && part.categoryName !== categoryFilter) {
+        return false
+      }
+
+      if (stockFilter === 'out') return part.quantity === 0
+      if (stockFilter === 'low') {
+        return part.quantity > 0 && part.quantity <= part.lowStockThreshold
+      }
+      if (stockFilter === 'available') {
+        return part.quantity > part.lowStockThreshold
+      }
+      return true
+    }),
+    [parts, supplierFilter, categoryFilter, stockFilter]
+  )
+
+  const metrics = useMemo(() => {
+    const active = parts.filter((part) => part.isActive)
+    return {
+      references: active.length,
+      units: active.reduce((sum, part) => sum + part.quantity, 0),
+      low: active.filter(
+        (part) =>
+          part.quantity > 0
+          && part.quantity <= part.lowStockThreshold
+      ).length,
+      out: active.filter((part) => part.quantity === 0).length,
+      purchaseValue: active.reduce(
+        (sum, part) =>
+          sum + part.purchasePriceMillimes * part.quantity,
+        0
+      ),
+      saleValue: active.reduce(
+        (sum, part) =>
+          sum + part.salePriceMillimes * part.quantity,
+        0
+      )
+    }
+  }, [parts])
+
+  const lowCount = metrics.low + metrics.out
 
   async function toggleArchive(part: Part): Promise<void> {
     const nextActive = !part.isActive
@@ -57,6 +129,31 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
     }
   }
 
+  async function exportCsv(): Promise<void> {
+    try {
+      setExporting(true)
+      setError('')
+      setNotice('')
+      const result = await window.desktop.parts.exportCsv(
+        query,
+        includeArchived
+      )
+      if (result) {
+        setNotice(
+          `Export CSV créé: ${result.rowCount} ligne(s) · ${result.path}`
+        )
+      }
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Impossible d’exporter le stock.'
+      )
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="page">
       <section className="page-heading">
@@ -65,30 +162,149 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
           <h1>{t(lang, 'stock')}</h1>
           <p>Retrouvez rapidement une référence, contrôlez les quantités et ajustez le stock.</p>
         </div>
-        <button className="primary-button" type="button" onClick={() => setShowCreate(true)}><PackagePlus size={19} />{t(lang, 'addPart')}</button>
+        <div className="heading-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => void exportCsv()}
+            disabled={exporting}
+          >
+            <Download size={18} />
+            {exporting ? 'Export…' : 'Exporter CSV'}
+          </button>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => setShowCreate(true)}
+          >
+            <PackagePlus size={19} />
+            {t(lang, 'addPart')}
+          </button>
+        </div>
       </section>
 
       {error && <div className="inline-alert error">{error}<button type="button" onClick={() => void load()}>Réessayer</button></div>}
+      {notice && (
+        <div className="inline-alert success">
+          {notice}
+          <button type="button" onClick={() => setNotice('')}>Fermer</button>
+        </div>
+      )}
+
+      <section className="stock-metrics" aria-label="Résumé du stock">
+        <div className="stock-metric">
+          <span className="stock-metric-icon"><PackageCheck size={18} /></span>
+          <div>
+            <small>Références actives</small>
+            <strong>{metrics.references}</strong>
+            <span>{metrics.units} unité(s) en stock</span>
+          </div>
+        </div>
+        <div className="stock-metric">
+          <span className="stock-metric-icon warning"><TriangleAlert size={18} /></span>
+          <div>
+            <small>À surveiller</small>
+            <strong>{metrics.low + metrics.out}</strong>
+            <span>{metrics.low} faible · {metrics.out} épuisée(s)</span>
+          </div>
+        </div>
+        <div className="stock-metric">
+          <span className="stock-metric-icon"><Coins size={18} /></span>
+          <div>
+            <small>Valeur achat du stock</small>
+            <strong>{formatTnd(metrics.purchaseValue, localeFor(lang))}</strong>
+            <span>Selon les prix d’achat enregistrés</span>
+          </div>
+        </div>
+        <div className="stock-metric">
+          <span className="stock-metric-icon"><Coins size={18} /></span>
+          <div>
+            <small>Valeur vente théorique</small>
+            <strong>{formatTnd(metrics.saleValue, localeFor(lang))}</strong>
+            <span>Avant remises commerciales</span>
+          </div>
+        </div>
+      </section>
 
       <section className="panel stock-panel">
         <div className="stock-toolbar">
           <label className="table-search"><Search size={18} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Référence, OEM, désignation, véhicule, rayon…" /></label>
+          <select
+            className="stock-filter-select"
+            value={stockFilter}
+            onChange={(event) =>
+              setStockFilter(event.target.value as typeof stockFilter)
+            }
+            aria-label="Filtrer par niveau de stock"
+          >
+            <option value="all">Tous les stocks</option>
+            <option value="available">Disponible</option>
+            <option value="low">Stock faible</option>
+            <option value="out">Épuisé</option>
+          </select>
+
+          <select
+            className="stock-filter-select"
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            aria-label="Filtrer par catégorie"
+          >
+            <option value="all">Toutes catégories</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+
+          <select
+            className="stock-filter-select"
+            value={supplierFilter}
+            onChange={(event) => setSupplierFilter(event.target.value)}
+            aria-label="Filtrer par fournisseur"
+          >
+            <option value="all">Tous fournisseurs</option>
+            {suppliers.map((supplier) => (
+              <option key={supplier} value={supplier}>{supplier}</option>
+            ))}
+          </select>
+
           <label className="archive-toggle">
             <input
               type="checkbox"
               checked={includeArchived}
               onChange={(event) => setIncludeArchived(event.target.checked)}
             />
-            <span>Afficher les archivées</span>
+            <span>Archivées</span>
           </label>
-          <span className="result-count">{loading ? 'Chargement…' : `${parts.length} ${t(lang, 'parts')}`}</span>
+
+          {(stockFilter !== 'all'
+            || categoryFilter !== 'all'
+            || supplierFilter !== 'all') && (
+            <button
+              className="icon-button stock-filter-reset"
+              type="button"
+              title="Réinitialiser les filtres"
+              onClick={() => {
+                setStockFilter('all')
+                setCategoryFilter('all')
+                setSupplierFilter('all')
+              }}
+            >
+              <FilterX size={16} />
+            </button>
+          )}
+
+          <span className="result-count">
+            {loading
+              ? 'Chargement…'
+              : `${visibleParts.length} / ${parts.length} ${t(lang, 'parts')}`}
+          </span>
         </div>
 
         <div className="table-wrap">
           <table className="data-table stock-table">
             <thead><tr><th>Référence</th><th>Désignation</th><th>Compatibilité</th><th>Catégorie</th><th>Fournisseur</th><th>Empl.</th><th>Stock</th><th>Prix vente</th><th></th></tr></thead>
             <tbody>
-              {parts.map((part) => {
+              {visibleParts.map((part) => {
                 const low = part.quantity <= part.lowStockThreshold
                 return (
                   <tr key={part.id} className={part.isActive ? '' : 'archived-row'}>
@@ -158,7 +374,11 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
               })}
             </tbody>
           </table>
-          {!loading && parts.length === 0 && <div className="table-empty">Aucune pièce trouvée. Ajoutez la première référence ou modifiez votre recherche.</div>}
+          {!loading && visibleParts.length === 0 && (
+            <div className="table-empty">
+              Aucune pièce ne correspond à la recherche et aux filtres actuels.
+            </div>
+          )}
         </div>
       </section>
 

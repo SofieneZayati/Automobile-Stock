@@ -1190,3 +1190,92 @@ button:disabled { cursor: not-allowed; opacity: .58; }
     break-inside: avoid;
   }
 }
+
+
+/* Stock reporting and filters */
+.stock-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stock-metric {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+.stock-metric-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--brand-100);
+  color: var(--brand-800);
+}
+.stock-metric-icon.warning {
+  background: #fff7e7;
+  color: #9b6a20;
+}
+.stock-metric > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stock-metric small,
+.stock-metric span {
+  color: var(--ink-500);
+  font-size: 8.7px;
+  line-height: 1.35;
+}
+.stock-metric strong {
+  color: var(--brand-950);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.stock-filter-select {
+  height: 34px;
+  max-width: 160px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: white;
+  padding: 0 28px 0 9px;
+  color: var(--ink-700);
+  font: inherit;
+  font-size: 9.2px;
+  font-weight: 700;
+  outline: 0;
+}
+.stock-filter-select:focus {
+  border-color: #98b7d4;
+  box-shadow: 0 0 0 3px rgba(31, 96, 157, .08);
+}
+.stock-filter-reset {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1180px) {
+  .stock-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stock-toolbar {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .stock-metrics {
+    grid-template-columns: 1fr;
+  }
+  .stock-filter-select {
+    width: 100%;
+    max-width: none;
+  }
+}
