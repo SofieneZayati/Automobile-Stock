@@ -45,9 +45,13 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
               <div className="paper-brand">
                 <div className="paper-mark">BM</div>
                 <div>
-                  <strong>ETABLISSEMENT BEN MAHMOUD</strong>
-                  <span>ÉQUIPEMENT AUTOMOBILES</span>
-                  <small>مؤسسة بن محمود · تجهيز السيارات</small>
+                  <strong>{invoice.business.companyName.toUpperCase()}</strong>
+                  <span>{invoice.business.activity.toUpperCase()}</span>
+                  <small>
+                    {[invoice.business.companyNameAr, invoice.business.activityAr]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </small>
                 </div>
               </div>
               <div className="paper-title">
@@ -68,8 +72,13 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
               </div>
               <div>
                 <span className="paper-label">ÉTABLISSEMENT</span>
-                <strong>31, Rue Chedly Kallala · 1002 Tunis</strong>
-                <small>Tél. 71 801 813 / 29 276 853</small>
+                <strong>{invoice.business.address}</strong>
+                <small>
+                  {[invoice.business.phone1, invoice.business.phone2]
+                    .filter(Boolean)
+                    .join(' / ')}
+                  {invoice.business.taxId ? ` · MF ${invoice.business.taxId}` : ''}
+                </small>
               </div>
             </div>
 
@@ -136,7 +145,7 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
                   <strong>{formatTnd(netHt, locale)}</strong>
                 </div>
                 <div>
-                  <span>TVA</span>
+                  <span>TVA {invoice.business.defaultTaxPercent}%</span>
                   <strong>{formatTnd(invoice.taxMillimes, locale)}</strong>
                 </div>
 
@@ -168,8 +177,14 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
             </div>
 
             <footer className="paper-footer">
-              <span>ETABLISSEMENT BEN MAHMOUD · ÉQUIPEMENT AUTOMOBILES</span>
-              <span>31, Rue Chedly Kallala, 1002 Tunis · 71 801 813 · 29 276 853</span>
+              <span>
+                {invoice.business.companyName.toUpperCase()} · {invoice.business.activity.toUpperCase()}
+              </span>
+              <span>
+                {invoice.business.address} · {[invoice.business.phone1, invoice.business.phone2]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
             </footer>
           </article>
         </div>

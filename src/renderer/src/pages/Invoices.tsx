@@ -11,7 +11,7 @@ import {
   Trash2,
   X
 } from 'lucide-react'
-import type { FinalizedInvoice, Part } from '../../../shared/contracts'
+import type { BusinessSettings, FinalizedInvoice, Part } from '../../../shared/contracts'
 import { Language, localeFor, t } from '../i18n'
 import { formatTnd, percentageAmount } from '../lib/money'
 
@@ -51,11 +51,35 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
   const [error, setError] = useState('')
   const [adjustmentMode, setAdjustmentMode] = useState<AdjustmentMode>('target')
   const [adjustmentText, setAdjustmentText] = useState('')
+  const [business, setBusiness] = useState<BusinessSettings | null>(null)
   const locale = localeFor(lang)
+  const taxPercent = finalized?.business.defaultTaxPercent
+    ?? business?.defaultTaxPercent
+    ?? 19
+
+  useEffect(() => {
+    let active = true
+    void window.desktop.settings.getBusiness()
+      .then((settings) => {
+        if (!active) return
+        setBusiness(settings)
+        setCustomer((current) =>
+          lines.length === 0 && current === t(lang, 'walkIn')
+            ? settings.defaultCustomerName
+            : current
+        )
+      })
+      .catch((cause) => {
+        if (active) {
+          setError(cause instanceof Error ? cause.message : 'Impossible de charger les paramètres.')
+        }
+      })
+    return () => { active = false }
+  }, [])
 
   const calculation = useMemo(
-    () => calculateDraft(lines, adjustmentMode, adjustmentText),
-    [lines, adjustmentMode, adjustmentText]
+    () => calculateDraft(lines, adjustmentMode, adjustmentText, taxPercent),
+    [lines, adjustmentMode, adjustmentText, taxPercent]
   )
 
   function updateQty(id: string, qty: number): void {
@@ -135,8 +159,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
           quantity: line.qty,
           unitPriceHtMillimes: line.listUnitPriceMillimes,
           negotiatedUnitPriceHtMillimes:
-            parseTnd(line.clientUnitPriceText) ?? line.listUnitPriceMillimes,
-          taxPercent: 19
+            parseTnd(line.clientUnitPriceText) ?? line.listUnitPriceMillimes
         }))
       })
 
@@ -150,7 +173,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
 
   function newInvoice(): void {
     setLines([])
-    setCustomer(t(lang, 'walkIn'))
+    setCustomer(business?.defaultCustomerName ?? t(lang, 'walkIn'))
     setFinalized(null)
     setAdjustmentMode('target')
     setAdjustmentText('')
@@ -169,6 +192,8 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
         totalBeforeGlobal: finalized.totalBeforeGlobalDiscountTtcMillimes,
         globalDiscount: finalized.globalDiscountTtcMillimes,
         total: finalized.totalTtcMillimes,
+        taxPercent: finalized.business.defaultTaxPercent,
+        business: finalized.business,
         lines: finalized.lines.map((line, index) => ({
           id: `final-${index}`,
           ref: line.reference,
@@ -191,6 +216,8 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
         totalBeforeGlobal: calculation.totalBeforeGlobal,
         globalDiscount: calculation.globalDiscount,
         total: calculation.total,
+        taxPercent,
+        business: business ?? fallbackBusinessSettings(),
         lines: lines.map((line) => {
           const clientUnit = parseTnd(line.clientUnitPriceText) ?? line.listUnitPriceMillimes
           return {
@@ -500,7 +527,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
               <strong>{formatTnd(paper.netHt, locale)}</strong>
             </div>
             <div>
-              <span>TVA 19%</span>
+              <span>TVA {paper.taxPercent}%</span>
               <strong>{formatTnd(paper.vat, locale)}</strong>
             </div>
 
@@ -672,6 +699,8 @@ function InvoicePaper({
     totalBeforeGlobal: number
     globalDiscount: number
     total: number
+    taxPercent: number
+    business: BusinessSettings
     lines: Array<{
       id: string
       ref: string
@@ -695,9 +724,9 @@ function InvoicePaper({
         <div className="paper-brand">
           <div className="paper-mark">BM</div>
           <div>
-            <strong>ETABLISSEMENT BEN MAHMOUD</strong>
-            <span>ÉQUIPEMENT AUTOMOBILES</span>
-            <small>مؤسسة بن محمود · تجهيز السيارات</small>
+            <strong>{paper.business.companyName.toUpperCase()}</strong>
+            <span>{paper.business.activity.toUpperCase()}</span>
+            <small>{[paper.business.companyNameAr, paper.business.activityAr].filter(Boolean).join(' · ')}</small>
           </div>
         </div>
         <div className="paper-title">
@@ -715,8 +744,11 @@ function InvoicePaper({
         </div>
         <div>
           <span className="paper-label">ÉTABLISSEMENT</span>
-          <strong>31, Rue Chedly Kallala · 1002 Tunis</strong>
-          <small>Tél. 71 801 813 / 29 276 853</small>
+          <strong>{paper.business.address}</strong>
+          <small>
+            {[paper.business.phone1, paper.business.phone2].filter(Boolean).join(' / ')}
+            {paper.business.taxId ? ` · MF ${paper.business.taxId}` : ''}
+          </small>
         </div>
       </div>
 
@@ -793,7 +825,7 @@ function InvoicePaper({
             <strong>{formatTnd(paper.netHt, locale)}</strong>
           </div>
           <div>
-            <span>TVA 19%</span>
+            <span>TVA {paper.taxPercent}%</span>
             <strong>{formatTnd(paper.vat, locale)}</strong>
           </div>
 
@@ -818,8 +850,10 @@ function InvoicePaper({
       </div>
 
       <footer className="paper-footer">
-        <span>ETABLISSEMENT BEN MAHMOUD · ÉQUIPEMENT AUTOMOBILES</span>
-        <span>31, Rue Chedly Kallala, 1002 Tunis · 71 801 813 · 29 276 853</span>
+        <span>{paper.business.companyName.toUpperCase()} · {paper.business.activity.toUpperCase()}</span>
+        <span>
+          {paper.business.address} · {[paper.business.phone1, paper.business.phone2].filter(Boolean).join(' · ')}
+        </span>
       </footer>
     </article>
   )
@@ -828,7 +862,8 @@ function InvoicePaper({
 function calculateDraft(
   lines: DraftLine[],
   mode: AdjustmentMode,
-  adjustmentText: string
+  adjustmentText: string,
+  taxPercent: number
 ): DraftCalculation {
   let subtotalGrossHt = 0
   let lineDiscount = 0
@@ -854,7 +889,7 @@ function calculateDraft(
     netHt += lineNet
     lineDiscount +=
       (line.listUnitPriceMillimes - clientUnit) * line.qty
-    vat += percentageAmount(lineNet, 19)
+    vat += percentageAmount(lineNet, taxPercent)
   }
 
   const totalBeforeGlobal = netHt + vat
@@ -893,6 +928,23 @@ function calculateDraft(
     total: Math.max(0, totalBeforeGlobal - globalDiscount),
     adjustmentValue,
     adjustmentError
+  }
+}
+
+function fallbackBusinessSettings(): BusinessSettings {
+  return {
+    companyName: 'Etablissement Ben Mahmoud',
+    activity: 'Équipement Automobiles',
+    companyNameAr: 'مؤسسة بن محمود',
+    activityAr: 'تجهيز السيارات',
+    address: '31, Rue Chedly Kallala, 1002 Tunis',
+    phone1: '71 801 813',
+    phone2: '29 276 853',
+    taxId: '',
+    defaultTaxPercent: 19,
+    invoicePrefix: 'F',
+    invoiceDigits: 4,
+    defaultCustomerName: 'Client comptoir'
   }
 }
 

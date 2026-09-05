@@ -1,5 +1,20 @@
 export type Language = 'fr' | 'en' | 'ar'
 
+export type BusinessSettings = {
+  companyName: string
+  activity: string
+  companyNameAr: string
+  activityAr: string
+  address: string
+  phone1: string
+  phone2: string
+  taxId: string
+  defaultTaxPercent: number
+  invoicePrefix: string
+  invoiceDigits: number
+  defaultCustomerName: string
+}
+
 export type Part = {
   id: number
   reference: string
@@ -122,6 +137,7 @@ export type FinalizedInvoice = {
   taxMillimes: number
   totalBeforeGlobalDiscountTtcMillimes: number
   totalTtcMillimes: number
+  business: BusinessSettings
   lines: FinalizedInvoiceLine[]
 }
 
@@ -152,5 +168,9 @@ export type DesktopApi = {
   backup: {
     create: () => Promise<BackupResult | null>
     restore: () => Promise<RestoreResult | null>
+  }
+  settings: {
+    getBusiness: () => Promise<BusinessSettings>
+    updateBusiness: (settings: BusinessSettings) => Promise<BusinessSettings>
   }
 }

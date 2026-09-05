@@ -3,7 +3,8 @@ import { adjustStock, createPart, listParts } from '../repositories/parts'
 import { getDashboardOverview } from '../services/dashboard'
 import { finalizeInvoice, getInvoice, listInvoices } from '../services/invoices'
 import { createBackup, restoreBackup } from '../services/backup'
-import type { AdjustStockInput, CreatePartInput, FinalizeInvoiceInput } from '../../shared/contracts'
+import { getBusinessSettings, updateBusinessSettings } from '../services/settings'
+import type { AdjustStockInput, BusinessSettings, CreatePartInput, FinalizeInvoiceInput } from '../../shared/contracts'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('parts:list', (_event, query?: string) => listParts(typeof query === 'string' ? query : ''))
@@ -18,4 +19,9 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('backup:create', () => createBackup())
   ipcMain.handle('backup:restore', () => restoreBackup())
+
+  ipcMain.handle('settings:business:get', () => getBusinessSettings())
+  ipcMain.handle('settings:business:update', (_event, settings: BusinessSettings) =>
+    updateBusinessSettings(settings)
+  )
 }

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AdjustStockInput,
+  BusinessSettings,
   CreatePartInput,
   DesktopApi,
   FinalizeInvoiceInput
@@ -24,6 +25,11 @@ const api: DesktopApi = {
   backup: {
     create: () => ipcRenderer.invoke('backup:create'),
     restore: () => ipcRenderer.invoke('backup:restore')
+  },
+  settings: {
+    getBusiness: () => ipcRenderer.invoke('settings:business:get'),
+    updateBusiness: (settings: BusinessSettings) =>
+      ipcRenderer.invoke('settings:business:update', settings)
   }
 }
 

@@ -520,3 +520,74 @@ button:disabled { cursor: not-allowed; opacity: .58; }
   .adjustment-control { grid-template-columns: 1fr; }
   .adjustment-mode { width: fit-content; }
 }
+
+
+/* Persistent business and fiscal settings */
+.business-settings-card { grid-column: 1 / -1; }
+.business-settings-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+  margin-top: 16px;
+}
+.business-settings-form .full { grid-column: 1 / -1; }
+.invoice-settings-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 15px;
+}
+.invoice-settings-preview > div {
+  min-height: 62px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 11px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  background: var(--surface-soft);
+}
+.invoice-settings-preview span {
+  color: var(--ink-500);
+  font-size: 9px;
+  font-weight: 700;
+}
+.invoice-settings-preview strong {
+  color: var(--brand-900);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.settings-save-row {
+  margin-top: 14px;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  justify-content: space-between;
+}
+.settings-save-row .settings-note {
+  margin: 0;
+  flex: 1;
+}
+.fiscal-warning {
+  border: 1px solid #e4d5aa;
+  background: #fffaf0;
+  color: #776334;
+}
+.settings-save-row .primary-button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 760px) {
+  .business-settings-form,
+  .invoice-settings-preview {
+    grid-template-columns: 1fr;
+  }
+  .business-settings-form .full {
+    grid-column: auto;
+  }
+  .settings-save-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

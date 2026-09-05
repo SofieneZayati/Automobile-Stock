@@ -153,5 +153,13 @@ export const migrations: Migration[] = [
         ADD COLUMN global_discount_ttc_millimes INTEGER NOT NULL DEFAULT 0
         CHECK (global_discount_ttc_millimes >= 0);
     `
+  },
+  {
+    version: 4,
+    name: 'invoice_business_snapshot',
+    sql: `
+      ALTER TABLE invoices
+        ADD COLUMN business_snapshot_json TEXT;
+    `
   }
 ]
