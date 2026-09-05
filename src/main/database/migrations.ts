@@ -176,5 +176,13 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_invoices_status_updated
         ON invoices(status, updated_at DESC);
     `
+  },
+  {
+    version: 6,
+    name: 'invoice_cancellation_reason',
+    sql: `
+      ALTER TABLE invoices
+        ADD COLUMN cancellation_reason TEXT;
+    `
   }
 ]

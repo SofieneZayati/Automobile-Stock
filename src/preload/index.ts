@@ -45,7 +45,9 @@ const api: DesktopApi = {
       ipcRenderer.invoke('invoices:draft-save', input, draftId),
     getDraft: (id: number) => ipcRenderer.invoke('invoices:draft-get', id),
     listDrafts: () => ipcRenderer.invoke('invoices:draft-list'),
-    deleteDraft: (id: number) => ipcRenderer.invoke('invoices:draft-delete', id)
+    deleteDraft: (id: number) => ipcRenderer.invoke('invoices:draft-delete', id),
+    cancel: (id: number, reason: string) =>
+      ipcRenderer.invoke('invoices:cancel', id, reason)
   },
   backup: {
     create: () => ipcRenderer.invoke('backup:create'),

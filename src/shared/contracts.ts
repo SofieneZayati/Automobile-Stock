@@ -190,8 +190,10 @@ export type InvoiceDraft = {
 export type InvoiceListItem = {
   id: number
   number: string
+  status: 'FINALIZED' | 'CANCELLED'
   customerName: string
   finalizedAt: string
+  cancelledAt: string | null
   subtotalHtMillimes: number
   taxMillimes: number
   totalTtcMillimes: number
@@ -243,12 +245,15 @@ export type FinalizedInvoiceLine = {
 export type FinalizedInvoice = {
   id: number
   number: string
+  status: 'FINALIZED' | 'CANCELLED'
   clientId: number | null
   customerName: string
   customerAddress: string | null
   customerTaxId: string | null
   notes: string | null
   finalizedAt: string
+  cancelledAt: string | null
+  cancellationReason: string | null
   subtotalHtMillimes: number
   discountMillimes: number
   globalDiscountTtcMillimes: number
@@ -300,6 +305,7 @@ export type DesktopApi = {
     getDraft: (id: number) => Promise<InvoiceDraft | null>
     listDrafts: () => Promise<InvoiceDraftListItem[]>
     deleteDraft: (id: number) => Promise<boolean>
+    cancel: (id: number, reason: string) => Promise<FinalizedInvoice>
   }
   backup: {
     create: () => Promise<BackupResult | null>

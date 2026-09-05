@@ -14,6 +14,11 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
     invoice.finalizedAt.replace(' ', 'T') + 'Z'
   ).toLocaleString(locale)
   const netHt = invoice.subtotalHtMillimes - invoice.discountMillimes
+  const cancelledAt = invoice.cancelledAt
+    ? new Date(
+        invoice.cancelledAt.replace(' ', 'T') + 'Z'
+      ).toLocaleString(locale)
+    : null
 
   return (
     <div
@@ -26,7 +31,11 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
       <div className="invoice-preview-modal">
         <div className="invoice-preview-actions">
           <div>
-            <span className="eyebrow">Document final</span>
+            <span className="eyebrow">
+              {invoice.status === 'CANCELLED'
+                ? 'Document annulé'
+                : 'Document final'}
+            </span>
             <strong>{invoice.number}</strong>
           </div>
           <div>
@@ -40,7 +49,13 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
         </div>
 
         <div className="history-paper-shell">
-          <article className="invoice-paper">
+          <article
+            className={
+              invoice.status === 'CANCELLED'
+                ? 'invoice-paper cancelled-paper'
+                : 'invoice-paper'
+            }
+          >
             <header className="paper-header">
               <div className="paper-brand">
                 <div className="paper-mark">BM</div>
@@ -60,6 +75,18 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
                 <small>{finalizedAt}</small>
               </div>
             </header>
+
+            {invoice.status === 'CANCELLED' && (
+              <div className="paper-cancelled-banner">
+                <strong>FACTURE ANNULÉE</strong>
+                <span>
+                  {cancelledAt ? `Annulée le ${cancelledAt}` : 'Facture annulée'}
+                  {invoice.cancellationReason
+                    ? ` · Motif: ${invoice.cancellationReason}`
+                    : ''}
+                </span>
+              </div>
+            )}
 
             <div className="paper-meta">
               <div>
@@ -124,7 +151,11 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
               <div className="paper-note">
                 <span className="paper-label">NOTE</span>
                 <p>{invoice.notes || 'Merci pour votre confiance.'}</p>
-                <small>Document final: les prix et remises sont figés.</small>
+                <small>
+                  {invoice.status === 'CANCELLED'
+                    ? 'Document annulé: les valeurs d’origine restent figées pour l’historique.'
+                    : 'Document final: les prix et remises sont figés.'}
+                </small>
               </div>
 
               <div className="paper-totals">
@@ -170,7 +201,11 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
                 )}
 
                 <div className="paper-grand-total">
-                  <span>Total TTC à payer</span>
+                  <span>
+                    {invoice.status === 'CANCELLED'
+                      ? 'Total TTC d’origine'
+                      : 'Total TTC à payer'}
+                  </span>
                   <strong>{formatTnd(invoice.totalTtcMillimes, locale)}</strong>
                 </div>
               </div>

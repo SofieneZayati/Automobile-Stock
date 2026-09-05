@@ -405,27 +405,159 @@ export function deleteInvoiceDraft(id: number): boolean {
   })
 }
 
+export function cancelInvoice(
+  id: number,
+  reasonValue: string
+): FinalizedInvoice {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error('Invalid invoice id')
+  }
+
+  const reason = reasonValue?.trim()
+  if (!reason) {
+    throw new Error('Cancellation reason is required')
+  }
+  if (reason.length > 500) {
+    throw new Error('Cancellation reason is too long')
+  }
+
+  const db = getDatabase()
+
+  return inTransaction(db, () => {
+    const invoice = db.prepare(`
+      SELECT id, number, status
+      FROM invoices
+      WHERE id = ? AND number IS NOT NULL
+    `).get(id) as {
+      id: number
+      number: string
+      status: 'DRAFT' | 'FINALIZED' | 'CANCELLED'
+    } | undefined
+
+    if (!invoice) throw new Error('Invoice not found')
+    if (invoice.status === 'CANCELLED') {
+      throw new Error('Invoice is already cancelled')
+    }
+    if (invoice.status !== 'FINALIZED') {
+      throw new Error('Only finalized invoices can be cancelled')
+    }
+
+    const statusResult = db.prepare(`
+      UPDATE invoices
+      SET
+        status = 'CANCELLED',
+        cancelled_at = datetime('now'),
+        cancellation_reason = ?,
+        updated_at = datetime('now')
+      WHERE id = ? AND status = 'FINALIZED'
+    `).run(reason, id)
+
+    if (statusResult.changes !== 1) {
+      throw new Error('Invoice status changed before cancellation')
+    }
+
+    const lines = db.prepare(`
+      SELECT part_id, quantity, reference_snapshot
+      FROM invoice_lines
+      WHERE invoice_id = ?
+      ORDER BY id
+    `).all(id) as Array<{
+      part_id: number | null
+      quantity: number
+      reference_snapshot: string
+    }>
+
+    const partQuantity = db.prepare(
+      'SELECT quantity FROM parts WHERE id = ?'
+    )
+    const restorePart = db.prepare(`
+      UPDATE parts
+      SET quantity = quantity + ?, updated_at = datetime('now')
+      WHERE id = ?
+    `)
+    const movementInsert = db.prepare(`
+      INSERT INTO stock_movements(
+        part_id, movement_type, quantity_delta, quantity_before, quantity_after,
+        invoice_id, note
+      ) VALUES (?, 'CANCELLATION', ?, ?, ?, ?, ?)
+    `)
+
+    for (const line of lines) {
+      if (!line.part_id) continue
+
+      const current = partQuantity.get(line.part_id) as {
+        quantity: number
+      } | undefined
+
+      if (!current) {
+        throw new Error(
+          `Part missing while cancelling ${line.reference_snapshot}`
+        )
+      }
+
+      const after = current.quantity + line.quantity
+      const restored = restorePart.run(line.quantity, line.part_id)
+      if (restored.changes !== 1) {
+        throw new Error(
+          `Could not restore stock for ${line.reference_snapshot}`
+        )
+      }
+
+      movementInsert.run(
+        line.part_id,
+        line.quantity,
+        current.quantity,
+        after,
+        id,
+        `Annulation facture ${invoice.number} — ${reason}`
+      )
+    }
+
+    db.prepare(`
+      INSERT INTO audit_log(entity_type, entity_id, action, details_json)
+      VALUES ('invoice', ?, 'CANCEL', ?)
+    `).run(
+      id,
+      JSON.stringify({
+        number: invoice.number,
+        reason,
+        restoredLines: lines.filter((line) => line.part_id !== null).length
+      })
+    )
+
+    const cancelled = getInvoice(id)
+    if (!cancelled) throw new Error('Cancelled invoice could not be loaded')
+    return cancelled
+  })
+}
+
 export function getInvoice(id: number): FinalizedInvoice | null {
   if (!Number.isInteger(id) || id <= 0) return null
   const db = getDatabase()
 
   const invoice = db.prepare(`
     SELECT
-      id, number, client_id, customer_name, customer_address, customer_tax_id, notes,
-      finalized_at, subtotal_ht_millimes, discount_millimes,
+      id, number, status, client_id, customer_name, customer_address,
+      customer_tax_id, notes, finalized_at, cancelled_at, cancellation_reason,
+      subtotal_ht_millimes, discount_millimes,
       global_discount_ttc_millimes, tax_millimes, total_ttc_millimes,
       business_snapshot_json
     FROM invoices
-    WHERE id = ? AND status = 'FINALIZED' AND number IS NOT NULL
+    WHERE id = ?
+      AND status IN ('FINALIZED', 'CANCELLED')
+      AND number IS NOT NULL
   `).get(id) as {
     id: number
     number: string
+    status: 'FINALIZED' | 'CANCELLED'
     client_id: number | null
     customer_name: string
     customer_address: string | null
     customer_tax_id: string | null
     notes: string | null
     finalized_at: string
+    cancelled_at: string | null
+    cancellation_reason: string | null
     subtotal_ht_millimes: number
     discount_millimes: number
     global_discount_ttc_millimes: number
@@ -459,12 +591,15 @@ export function getInvoice(id: number): FinalizedInvoice | null {
   return {
     id: invoice.id,
     number: invoice.number,
+    status: invoice.status,
     clientId: invoice.client_id,
     customerName: invoice.customer_name,
     customerAddress: invoice.customer_address,
     customerTaxId: invoice.customer_tax_id,
     notes: invoice.notes,
     finalizedAt: invoice.finalized_at,
+    cancelledAt: invoice.cancelled_at,
+    cancellationReason: invoice.cancellation_reason,
     subtotalHtMillimes: invoice.subtotal_ht_millimes,
     discountMillimes: invoice.discount_millimes,
     globalDiscountTtcMillimes: invoice.global_discount_ttc_millimes,
@@ -502,15 +637,17 @@ export function listInvoices(query = ''): InvoiceListItem[] {
     SELECT
       i.id,
       i.number,
+      i.status,
       i.customer_name,
       i.finalized_at,
+      i.cancelled_at,
       i.subtotal_ht_millimes,
       i.tax_millimes,
       i.total_ttc_millimes,
       COUNT(il.id) AS line_count
     FROM invoices i
     LEFT JOIN invoice_lines il ON il.invoice_id = i.id
-    WHERE i.status = 'FINALIZED'
+    WHERE i.status IN ('FINALIZED', 'CANCELLED')
       AND i.number IS NOT NULL
       ${needle
         ? "AND (i.number LIKE ? COLLATE NOCASE OR i.customer_name LIKE ? COLLATE NOCASE)"
@@ -523,8 +660,10 @@ export function listInvoices(query = ''): InvoiceListItem[] {
   const rows = db.prepare(sql).all(...params) as Array<{
     id: number
     number: string
+    status: 'FINALIZED' | 'CANCELLED'
     customer_name: string
     finalized_at: string
+    cancelled_at: string | null
     subtotal_ht_millimes: number
     tax_millimes: number
     total_ttc_millimes: number
@@ -534,8 +673,10 @@ export function listInvoices(query = ''): InvoiceListItem[] {
   return rows.map((row) => ({
     id: row.id,
     number: row.number,
+    status: row.status,
     customerName: row.customer_name,
     finalizedAt: row.finalized_at,
+    cancelledAt: row.cancelled_at,
     subtotalHtMillimes: row.subtotal_ht_millimes,
     taxMillimes: row.tax_millimes,
     totalTtcMillimes: row.total_ttc_millimes,
