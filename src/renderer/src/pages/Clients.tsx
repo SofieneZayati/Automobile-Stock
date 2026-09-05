@@ -2,6 +2,8 @@ import { useEffect, useState, type JSX } from 'react'
 import {
   Building2,
   MapPin,
+  Eye,
+  FileText,
   Pencil,
   Phone,
   Search,
@@ -11,9 +13,13 @@ import {
 import type {
   Client,
   CreateClientInput,
+  FinalizedInvoice,
+  InvoiceListItem,
   UpdateClientInput
 } from '../../../shared/contracts'
-import { Language } from '../i18n'
+import { Language, localeFor } from '../i18n'
+import { formatTnd } from '../lib/money'
+import { FinalizedInvoicePreview } from '../components/FinalizedInvoicePreview'
 
 type ClientFormState = {
   name: string
@@ -31,12 +37,13 @@ const emptyForm: ClientFormState = {
   notes: ''
 }
 
-export function Clients({ lang: _lang }: { lang: Language }): JSX.Element {
+export function Clients({ lang }: { lang: Language }): JSX.Element {
   const [query, setQuery] = useState('')
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<Client | null>(null)
+  const [historyClient, setHistoryClient] = useState<Client | null>(null)
   const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
@@ -145,14 +152,26 @@ export function Clients({ lang: _lang }: { lang: Language }): JSX.Element {
                     <strong>{client.name}</strong>
                     <small>{client.taxId ? `MF: ${client.taxId}` : 'Sans matricule fiscal'}</small>
                   </div>
-                  <button
-                    className="icon-button"
-                    type="button"
-                    onClick={() => openEdit(client)}
-                    aria-label={`Modifier ${client.name}`}
-                  >
-                    <Pencil size={16} />
-                  </button>
+                  <div className="client-card-actions">
+                    <button
+                      className="icon-button"
+                      type="button"
+                      onClick={() => setHistoryClient(client)}
+                      aria-label={`Factures de ${client.name}`}
+                      title="Historique des factures"
+                    >
+                      <FileText size={16} />
+                    </button>
+                    <button
+                      className="icon-button"
+                      type="button"
+                      onClick={() => openEdit(client)}
+                      aria-label={`Modifier ${client.name}`}
+                      title="Modifier le client"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="client-details">
@@ -175,6 +194,14 @@ export function Clients({ lang: _lang }: { lang: Language }): JSX.Element {
         )}
       </section>
 
+      {historyClient && (
+        <ClientInvoiceHistory
+          client={historyClient}
+          lang={lang}
+          onClose={() => setHistoryClient(null)}
+        />
+      )}
+
       {showForm && (
         <ClientModal
           client={editing}
@@ -187,6 +214,208 @@ export function Clients({ lang: _lang }: { lang: Language }): JSX.Element {
       )}
     </div>
   )
+}
+
+function ClientInvoiceHistory({
+  client,
+  lang,
+  onClose
+}: {
+  client: Client
+  lang: Language
+  onClose: () => void
+}): JSX.Element {
+  const [invoices, setInvoices] = useState<InvoiceListItem[]>([])
+  const [selected, setSelected] = useState<FinalizedInvoice | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const locale = localeFor(lang)
+
+  useEffect(() => {
+    let active = true
+
+    void window.desktop.invoices.listByClient(client.id)
+      .then((result) => {
+        if (active) setInvoices(result)
+      })
+      .catch((cause) => {
+        if (active) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : 'Impossible de charger les factures du client.'
+          )
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [client.id])
+
+  async function openInvoice(id: number): Promise<void> {
+    try {
+      setError('')
+      const invoice = await window.desktop.invoices.get(id)
+      if (!invoice) throw new Error('Facture introuvable.')
+      setSelected(invoice)
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Impossible d’ouvrir la facture.'
+      )
+    }
+  }
+
+  const activeInvoices = invoices.filter(
+    (invoice) => invoice.status === 'FINALIZED'
+  )
+  const totalBusiness = activeInvoices.reduce(
+    (sum, invoice) => sum + invoice.totalTtcMillimes,
+    0
+  )
+
+  return (
+    <>
+      <div
+        className="modal-backdrop"
+        role="presentation"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) onClose()
+        }}
+      >
+        <div className="modal-card wide client-history-modal">
+          <div className="modal-heading">
+            <div>
+              <span className="eyebrow">Historique client</span>
+              <h2>{client.name}</h2>
+              <p>
+                Factures liées à cette fiche client. Les ventes annulées
+                restent visibles mais ne sont pas comptées dans le chiffre.
+              </p>
+            </div>
+            <button
+              className="icon-button"
+              type="button"
+              onClick={onClose}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="client-history-summary">
+            <div>
+              <span>Factures actives</span>
+              <strong>{activeInvoices.length}</strong>
+            </div>
+            <div>
+              <span>Annulées</span>
+              <strong>
+                {invoices.length - activeInvoices.length}
+              </strong>
+            </div>
+            <div>
+              <span>Total TTC historique</span>
+              <strong>{formatTnd(totalBusiness, locale)}</strong>
+            </div>
+          </div>
+
+          {error && <div className="inline-alert error">{error}</div>}
+
+          {loading ? (
+            <div className="panel-empty">Chargement…</div>
+          ) : invoices.length === 0 ? (
+            <div className="panel-empty">
+              Aucune facture finalisée liée à ce client.
+            </div>
+          ) : (
+            <div className="client-history-list">
+              {invoices.map((invoice) => (
+                <div
+                  className={
+                    invoice.status === 'CANCELLED'
+                      ? 'client-history-row cancelled'
+                      : 'client-history-row'
+                  }
+                  key={invoice.id}
+                >
+                  <div>
+                    <strong>{invoice.number}</strong>
+                    <span>
+                      {formatClientInvoiceDate(
+                        invoice.finalizedAt,
+                        locale
+                      )}
+                    </span>
+                  </div>
+
+                  <span
+                    className={
+                      invoice.status === 'CANCELLED'
+                        ? 'invoice-status cancelled'
+                        : 'invoice-status finalized'
+                    }
+                  >
+                    {invoice.status === 'CANCELLED'
+                      ? 'Annulée'
+                      : 'Finalisée'}
+                  </span>
+
+                  <strong>
+                    {formatTnd(invoice.totalTtcMillimes, locale)}
+                  </strong>
+
+                  <button
+                    className="row-preview-button"
+                    type="button"
+                    onClick={() => void openInvoice(invoice.id)}
+                  >
+                    <Eye size={15} />
+                    Ouvrir
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="modal-actions">
+            <button
+              className="primary-button"
+              type="button"
+              onClick={onClose}
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {selected && (
+        <FinalizedInvoicePreview
+          invoice={selected}
+          lang={lang}
+          onClose={() => setSelected(null)}
+        />
+      )}
+    </>
+  )
+}
+
+function formatClientInvoiceDate(
+  value: string,
+  locale: string
+): string {
+  const date = new Date(value.replace(' ', 'T') + 'Z')
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString(locale, {
+        dateStyle: 'short',
+        timeStyle: 'short'
+      })
 }
 
 function ClientModal({

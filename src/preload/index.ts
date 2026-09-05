@@ -43,6 +43,8 @@ const api: DesktopApi = {
     finalize: (input: FinalizeInvoiceInput) => ipcRenderer.invoke('invoices:finalize', input),
     get: (id: number) => ipcRenderer.invoke('invoices:get', id),
     list: (query = '') => ipcRenderer.invoke('invoices:list', query),
+    listByClient: (clientId: number) =>
+      ipcRenderer.invoke('invoices:list-by-client', clientId),
     saveDraft: (input: FinalizeInvoiceInput, draftId?: number) =>
       ipcRenderer.invoke('invoices:draft-save', input, draftId),
     getDraft: (id: number) => ipcRenderer.invoke('invoices:draft-get', id),

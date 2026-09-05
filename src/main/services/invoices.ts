@@ -684,6 +684,60 @@ export function listInvoices(query = ''): InvoiceListItem[] {
   }))
 }
 
+export function listInvoicesByClient(
+  clientIdValue: number
+): InvoiceListItem[] {
+  if (!Number.isInteger(clientIdValue) || clientIdValue <= 0) {
+    throw new Error('Invalid client id')
+  }
+
+  const rows = getDatabase().prepare(`
+    SELECT
+      i.id,
+      i.number,
+      i.status,
+      i.customer_name,
+      i.finalized_at,
+      i.cancelled_at,
+      i.subtotal_ht_millimes,
+      i.tax_millimes,
+      i.total_ttc_millimes,
+      COUNT(il.id) AS line_count
+    FROM invoices i
+    LEFT JOIN invoice_lines il ON il.invoice_id = i.id
+    WHERE i.client_id = ?
+      AND i.status IN ('FINALIZED', 'CANCELLED')
+      AND i.number IS NOT NULL
+    GROUP BY i.id
+    ORDER BY i.finalized_at DESC, i.id DESC
+    LIMIT 250
+  `).all(clientIdValue) as Array<{
+    id: number
+    number: string
+    status: 'FINALIZED' | 'CANCELLED'
+    customer_name: string
+    finalized_at: string
+    cancelled_at: string | null
+    subtotal_ht_millimes: number
+    tax_millimes: number
+    total_ttc_millimes: number
+    line_count: number
+  }>
+
+  return rows.map((row) => ({
+    id: row.id,
+    number: row.number,
+    status: row.status,
+    customerName: row.customer_name,
+    finalizedAt: row.finalized_at,
+    cancelledAt: row.cancelled_at,
+    subtotalHtMillimes: row.subtotal_ht_millimes,
+    taxMillimes: row.tax_millimes,
+    totalTtcMillimes: row.total_ttc_millimes,
+    lineCount: row.line_count
+  }))
+}
+
 function calculateInvoice(
   input: FinalizeInvoiceInput,
   business: BusinessSettings

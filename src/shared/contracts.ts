@@ -307,6 +307,7 @@ export type DesktopApi = {
     finalize: (input: FinalizeInvoiceInput) => Promise<FinalizedInvoice>
     get: (id: number) => Promise<FinalizedInvoice | null>
     list: (query?: string) => Promise<InvoiceListItem[]>
+    listByClient: (clientId: number) => Promise<InvoiceListItem[]>
     saveDraft: (input: FinalizeInvoiceInput, draftId?: number) => Promise<InvoiceDraft>
     getDraft: (id: number) => Promise<InvoiceDraft | null>
     listDrafts: () => Promise<InvoiceDraftListItem[]>

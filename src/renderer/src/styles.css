@@ -1306,3 +1306,95 @@ button:disabled { cursor: not-allowed; opacity: .58; }
   border-radius: 50%;
   background: currentColor;
 }
+
+
+/* Client invoice history */
+.client-card-head {
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+}
+.client-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.client-history-modal {
+  width: min(720px, calc(100vw - 36px));
+  overflow: hidden;
+}
+.client-history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.client-history-summary > div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.client-history-summary span {
+  color: var(--ink-500);
+  font-size: 8.7px;
+  font-weight: 700;
+}
+.client-history-summary strong {
+  color: var(--brand-900);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.client-history-list {
+  max-height: min(430px, calc(100vh - 300px));
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.client-history-row {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) auto 110px auto;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 11px;
+  border-bottom: 1px solid #edf0f3;
+}
+.client-history-row:last-child {
+  border-bottom: 0;
+}
+.client-history-row.cancelled {
+  background: #fffafa;
+}
+.client-history-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.client-history-row > div strong {
+  color: var(--brand-800);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+}
+.client-history-row > div span {
+  color: var(--ink-500);
+  font-size: 8.5px;
+}
+.client-history-row > strong {
+  text-align: end;
+  font-size: 10px;
+}
+
+@media (max-width: 760px) {
+  .client-history-summary {
+    grid-template-columns: 1fr;
+  }
+  .client-history-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .client-history-row > strong {
+    text-align: start;
+  }
+}
