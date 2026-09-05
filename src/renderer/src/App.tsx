@@ -4,6 +4,7 @@ import { Topbar } from './components/Topbar'
 import { Dashboard } from './pages/Dashboard'
 import { Invoices } from './pages/Invoices'
 import { InvoiceHistory } from './pages/InvoiceHistory'
+import { Clients } from './pages/Clients'
 import { Settings } from './pages/Settings'
 import { Stock } from './pages/Stock'
 import { Language } from './i18n'
@@ -40,7 +41,7 @@ export default function App(): JSX.Element {
           {page === 'stock' && <Stock lang={lang} />}
           {page === 'invoices' && <Invoices lang={lang} />}
           {page === 'invoiceHistory' && <InvoiceHistory lang={lang} onNavigate={setPage} />}
-          {page === 'clients' && <Placeholder title="Clients" text="Fiches clients simples, historique des factures et recherche rapide." />}
+          {page === 'clients' && <Clients lang={lang} />}
           {page === 'settings' && <Settings lang={lang} />}
         </div>
       </main>

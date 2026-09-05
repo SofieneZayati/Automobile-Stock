@@ -2,9 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AdjustStockInput,
   BusinessSettings,
+  CreateClientInput,
   CreatePartInput,
   DesktopApi,
-  FinalizeInvoiceInput
+  FinalizeInvoiceInput,
+  UpdateClientInput
 } from '../shared/contracts'
 
 const api: DesktopApi = {
@@ -13,6 +15,11 @@ const api: DesktopApi = {
     list: (query = '') => ipcRenderer.invoke('parts:list', query),
     create: (input: CreatePartInput) => ipcRenderer.invoke('parts:create', input),
     adjustStock: (input: AdjustStockInput) => ipcRenderer.invoke('parts:adjust-stock', input)
+  },
+  clients: {
+    list: (query = '') => ipcRenderer.invoke('clients:list', query),
+    create: (input: CreateClientInput) => ipcRenderer.invoke('clients:create', input),
+    update: (input: UpdateClientInput) => ipcRenderer.invoke('clients:update', input)
   },
   dashboard: {
     overview: () => ipcRenderer.invoke('dashboard:overview')

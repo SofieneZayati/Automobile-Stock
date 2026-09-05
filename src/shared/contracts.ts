@@ -35,6 +35,29 @@ export type Part = {
   updatedAt: string
 }
 
+export type Client = {
+  id: number
+  name: string
+  phone: string | null
+  address: string | null
+  taxId: string | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type CreateClientInput = {
+  name: string
+  phone?: string
+  address?: string
+  taxId?: string
+  notes?: string
+}
+
+export type UpdateClientInput = CreateClientInput & {
+  id: number
+}
+
 export type CreatePartInput = {
   reference: string
   designation: string
@@ -156,6 +179,11 @@ export type DesktopApi = {
     list: (query?: string) => Promise<Part[]>
     create: (input: CreatePartInput) => Promise<Part>
     adjustStock: (input: AdjustStockInput) => Promise<Part>
+  }
+  clients: {
+    list: (query?: string) => Promise<Client[]>
+    create: (input: CreateClientInput) => Promise<Client>
+    update: (input: UpdateClientInput) => Promise<Client>
   }
   dashboard: {
     overview: () => Promise<DashboardOverview>
