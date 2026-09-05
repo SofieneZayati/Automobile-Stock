@@ -187,13 +187,14 @@ Invoice lines keep a snapshot of the designation/reference/unit price/tax/discou
 
 ### Phase 2 — Real local data
 - [x] SQLite schema + migrations
-- [ ] CRUD services
+- [x] core parts/client CRUD services
 - [x] invoice finalization transaction
 - [x] stock decrement / movement ledger
-- [ ] settings persistence
+- [x] business/fiscal settings persistence
 
 ### Phase 3 — Production workflow
-- [ ] clients and suppliers
+- [ ] suppliers
+- [x] clients
 - [ ] search/filter polish
 - [x] invoice history/reprint
 - [x] backups/restores
@@ -237,12 +238,12 @@ The application has moved beyond static UI mockups:
 
 - SQLite is now the real source of truth for parts, quantities, stock movements and finalized invoices.
 - Development mode seeds a small demonstration catalog; packaged production builds start without fake stock.
-- Adding a part and recording a stock entry/correction are connected to SQLite.
-- Invoice product search reads live stock.
-- Finalizing an invoice is transactional: stock is checked, a sequential number is assigned, immutable line snapshots are written and SALE movements decrement stock together.
-- Finalized invoices have a searchable history and can be reopened/reprinted.
+- Adding, editing, archiving/restoring a part and recording stock entry/correction are connected to SQLite.
+- Invoice product search reads live stock; saved clients can be selected and their name/address/tax ID are snapshotted onto the invoice.
+- Finalizing an invoice is transactional: stock is checked, a configurable sequential number is assigned, immutable line/business snapshots are written and SALE movements decrement stock together.
+- Finalized invoices have a searchable history and can be reopened/reprinted. Per-item negotiated prices and whole-invoice discounts are preserved.
 - Dashboard totals and low-stock warnings come from local data.
-- Manual SQLite backup and integrity-checked restore are available from Settings.
+- Editable establishment identity, address, phones, matricule fiscal, TVA default, invoice prefix/digits and default customer are persisted in SQLite. Manual backup and integrity-checked restore are also available from Settings.
 - Language selection persists locally; French remains the default and Arabic still switches document direction to RTL.
 - A Windows-only GitHub workflow can build the portable EXE; real printer/portable-build testing remains a release task.
 - GitHub CI verifies install, TypeScript and Electron/Vite build on every push.
@@ -250,8 +251,8 @@ The application has moved beyond static UI mockups:
 ### Still intentionally open before client delivery
 
 - Confirm fiscal/legal invoice fields with the client (matricule fiscal, HT/TTC convention, TVA rules and invoice numbering).
-- Make company/fiscal settings editable and use them everywhere instead of static defaults.
-- Finish part edit/archive and supplier/client workflows.
+- Confirm the exact client fiscal values before final delivery; the app now makes them editable and snapshots them on finalized invoices.
+- Finish supplier workflow and richer stock movement/history screens.
 - Add invoice draft persistence, cancellation/avoir rules if required, and stronger print tests for long multi-page invoices.
 - Test backup/restore with production-like data.
 - Run and validate the Windows portable artifact on the client's Windows machine and printer.
