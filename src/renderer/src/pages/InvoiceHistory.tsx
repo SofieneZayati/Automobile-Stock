@@ -345,7 +345,9 @@ function CancellationDialog({
             <span>
               L’application ajoutera des mouvements “Annulation” pour
               chaque pièce vendue. La facture originale ne sera ni supprimée
-              ni réécrite.
+              ni réécrite. Cette action est une annulation interne et ne crée
+              pas un avoir fiscal; le workflow d’avoir devra être activé
+              seulement après confirmation des règles du client.
             </span>
           </div>
         </div>

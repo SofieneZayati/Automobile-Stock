@@ -11,7 +11,13 @@ import {
 import type { BusinessSettings } from '../../../shared/contracts'
 import { Language } from '../i18n'
 
-export function Settings({ lang }: { lang: Language }): JSX.Element {
+export function Settings({
+  lang,
+  onBusinessChange
+}: {
+  lang: Language
+  onBusinessChange?: (settings: BusinessSettings) => void
+}): JSX.Element {
   const [busy, setBusy] = useState<'backup' | 'restore' | 'save' | null>(null)
   const [business, setBusiness] = useState<BusinessSettings | null>(null)
   const [message, setMessage] = useState<{
@@ -66,6 +72,7 @@ export function Settings({ lang }: { lang: Language }): JSX.Element {
       setMessage(null)
       const saved = await window.desktop.settings.updateBusiness(business)
       setBusiness(saved)
+      onBusinessChange?.(saved)
       setMessage({
         type: 'success',
         text: 'Paramètres enregistrés. Les prochaines factures utiliseront ces informations.'
@@ -117,6 +124,7 @@ export function Settings({ lang }: { lang: Language }): JSX.Element {
       if (result) {
         const refreshed = await window.desktop.settings.getBusiness()
         setBusiness(refreshed)
+        onBusinessChange?.(refreshed)
         setMessage({
           type: 'success',
           text: `Sauvegarde restaurée et vérifiée (${result.integrity}). Une copie de sécurité des données précédentes a été conservée${result.safetyBackupPath ? `: ${result.safetyBackupPath}` : '.'}`

@@ -4,8 +4,16 @@ import { Language, localeFor, t } from '../i18n'
 import { formatTnd } from '../lib/money'
 import type { CreatePartInput, Part, StockMovement, Supplier, UpdatePartInput } from '../../../shared/contracts'
 
-export function Stock({ lang }: { lang: Language }): JSX.Element {
-  const [query, setQuery] = useState('')
+export function Stock({
+  lang,
+  initialQuery = '',
+  searchRequestId = 0
+}: {
+  lang: Language
+  initialQuery?: string
+  searchRequestId?: number
+}): JSX.Element {
+  const [query, setQuery] = useState(initialQuery)
   const [parts, setParts] = useState<Part[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,6 +39,12 @@ export function Stock({ lang }: { lang: Language }): JSX.Element {
       setLoading(false)
     }
   }, [query, includeArchived])
+
+  useEffect(() => {
+    if (searchRequestId > 0) {
+      setQuery(initialQuery)
+    }
+  }, [initialQuery, searchRequestId])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => void load(query), 180)

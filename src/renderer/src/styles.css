@@ -1279,3 +1279,30 @@ button:disabled { cursor: not-allowed; opacity: .58; }
     max-width: none;
   }
 }
+
+
+/* Global command search and local status */
+.global-search {
+  margin: 0;
+}
+.local-status {
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid #c7dbd0;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 8.5px;
+  font-weight: 850;
+  letter-spacing: .02em;
+}
+.local-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}

@@ -120,6 +120,23 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
     [lines, adjustmentMode, adjustmentText, taxPercent]
   )
 
+  useEffect(() => {
+    function handleInvoiceShortcut(event: KeyboardEvent): void {
+      if (
+        event.key === 'F2'
+        && !finalized
+        && !showClientPicker
+      ) {
+        event.preventDefault()
+        setShowPicker(true)
+      }
+    }
+
+    window.addEventListener('keydown', handleInvoiceShortcut)
+    return () =>
+      window.removeEventListener('keydown', handleInvoiceShortcut)
+  }, [finalized, showClientPicker])
+
   function updateQty(id: string, qty: number): void {
     setLines((current) => current.map((line) => line.id === id
       ? { ...line, qty: Math.max(1, Math.min(line.stockAvailable, qty || 1)) }
