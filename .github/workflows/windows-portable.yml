@@ -45,9 +45,34 @@ jobs:
             throw "Portable EXE smoke test failed with exit code $($process.ExitCode)."
           }
 
+      - name: Prepare client delivery package
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path release -Filter "*.exe" | Select-Object -First 1
+          if (-not $exe) {
+            throw "Portable EXE was not produced."
+          }
+
+          $delivery = "release/BEN MAHMOUD STOCK"
+          $backup = Join-Path $delivery "SAUVEGARDES"
+
+          New-Item -ItemType Directory -Force -Path $delivery | Out-Null
+          New-Item -ItemType Directory -Force -Path $backup | Out-Null
+
+          Copy-Item $exe.FullName (Join-Path $delivery "Ben-Mahmoud-Stock-Portable.exe")
+          Copy-Item "docs/LIRE-MOI.txt" (Join-Path $delivery "LIRE-MOI.txt")
+          Copy-Item "docs/SAUVEGARDES-README.txt" (Join-Path $backup "README.txt")
+
       - name: Upload portable app
         uses: actions/upload-artifact@v4
         with:
           name: Ben-Mahmoud-Stock-Portable
           path: release/*.exe
+          if-no-files-found: error
+
+      - name: Upload client delivery package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ben-Mahmoud-Stock-Client-Package
+          path: release/BEN MAHMOUD STOCK/**
           if-no-files-found: error

@@ -52,7 +52,9 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "build/icon.ico",
+      "executableName": "Ben Mahmoud Stock"
     },
     "portable": {
       "artifactName": "Ben-Mahmoud-Stock-Portable-${version}.${ext}"

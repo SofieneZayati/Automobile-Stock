@@ -1,0 +1,53 @@
+BEN MAHMOUD STOCK — GUIDE RAPIDE
+
+1. OUVRIR L'APPLICATION
+- Double-cliquez sur "Ben-Mahmoud-Stock-Portable.exe".
+- Aucun navigateur, serveur, Node.js ou terminal n'est nécessaire.
+- Les données restent enregistrées sur le PC du magasin.
+
+2. PREMIÈRE UTILISATION
+Ouvrez "Paramètres" et vérifiez:
+- nom et activité de l'établissement;
+- adresse et téléphones;
+- matricule fiscal;
+- TVA par défaut;
+- préfixe et format des numéros de facture.
+
+3. STOCK
+- Utilisez "Pièces & stock" pour ajouter ou rechercher une pièce.
+- Utilisez "Ajuster le stock" pour toute entrée, retour ou correction.
+- Ne modifiez jamais la quantité en changeant la fiche de la pièce.
+- L'historique garde les mouvements de stock.
+
+4. FACTURES
+- Ajoutez les pièces depuis le stock réel.
+- Le prix client peut être négocié avant validation.
+- Exemple: 21,700 DT peut devenir 21,000 DT ou 20,000 DT.
+- Le total final peut aussi être arrondi, par exemple 205 DT vers 200 DT.
+- Un brouillon peut être enregistré et rouvert plus tard.
+- Le numéro définitif est attribué uniquement à la validation.
+
+5. ANNULATION
+- Une facture finalisée peut être annulée avec une raison.
+- La facture originale reste dans l'historique.
+- Le stock vendu est automatiquement réintégré.
+- Cette fonction est une annulation interne; elle ne remplace pas un avoir fiscal si la comptabilité du magasin en exige un.
+
+6. SAUVEGARDE
+Dans Paramètres > Sauvegarde:
+- créez régulièrement une sauvegarde;
+- choisissez de préférence le dossier SAUVEGARDES de la clé USB;
+- avant une restauration, l'application conserve automatiquement une copie de sécurité de la base actuelle.
+
+7. MISE À JOUR
+- Fermez l'application.
+- Remplacez uniquement l'ancien EXE par le nouvel EXE.
+- Les données du magasin ne sont pas stockées dans l'EXE et ne sont donc pas supprimées lors d'une mise à jour normale.
+
+IMPORTANT AVANT LIVRAISON DÉFINITIVE
+Confirmer avec l'établissement:
+- matricule fiscal exact;
+- règles HT/TTC et TVA;
+- numérotation des factures;
+- besoin éventuel d'un avoir fiscal;
+- impression sur l'imprimante réelle du magasin.

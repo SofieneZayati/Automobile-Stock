@@ -82,7 +82,7 @@ Important operations:
 - stock entry and stock correction;
 - movement history;
 - low-stock filter;
-- CSV import/export later.
+- CSV export is implemented; bulk CSV import can be added later if the client needs it.
 
 ### 3. Clients
 - name/company;
@@ -195,19 +195,19 @@ Invoice lines keep a snapshot of the designation/reference/unit price/tax/discou
 ### Phase 3 — Production workflow
 - [x] suppliers
 - [x] clients
-- [ ] search/filter polish
+- [x] search/filter polish
 - [x] invoice history/reprint
 - [x] backups/restores
-- [ ] validation and error states
-- [ ] audit log
+- [x] validation and error states
+- [x] audit log
 
 ### Phase 4 — Desktop delivery
-- [ ] Windows packaging
-- [ ] portable build for flash-drive delivery
-- [ ] app icon / company branding
+- [x] Windows packaging
+- [x] portable build for flash-drive delivery
+- [x] app icon / company branding
 - [ ] printer testing
-- [ ] seeded production defaults
-- [ ] installation/use guide
+- [x] seeded production defaults
+- [x] installation/use guide
 
 ## Repository rules
 
@@ -241,18 +241,25 @@ The application has moved beyond static UI mockups:
 - Adding, editing, archiving/restoring a part and recording stock entry/correction are connected to SQLite. Each part can be associated with a saved supplier.
 - Invoice product search reads live stock; saved clients can be selected and their name/address/tax ID are snapshotted onto the invoice.
 - Finalizing an invoice is transactional: stock is checked, a configurable sequential number is assigned, immutable line/business snapshots are written and SALE movements decrement stock together.
-- Invoice drafts can now be saved, reopened, updated, deleted, and consumed safely when finalizing. Finalized invoices have a searchable history and can be reopened/reprinted. Per-item negotiated prices and whole-invoice discounts are preserved.
-- Dashboard totals and low-stock warnings come from local data. Per-part stock movement history is viewable from the stock table, including linked invoice numbers for sales.
-- Editable establishment identity, address, phones, matricule fiscal, TVA default, invoice prefix/digits and default customer are persisted in SQLite. Manual backup and integrity-checked restore are available from Settings, and restore now keeps an automatic pre-restore safety copy of the active database.
-- Language selection persists locally; French remains the default and Arabic still switches document direction to RTL.
-- A Windows-only GitHub workflow can build the portable EXE; real printer/portable-build testing remains a release task.
+- Invoice drafts can be saved, reopened, updated, deleted, and consumed safely when finalizing. Finalized invoices have searchable history/reprint, per-client history, negotiated per-item prices and whole-invoice discounts. Finalized invoices can be cancelled internally with a required reason while restoring stock through cancellation movements.
+- Dashboard totals and low-stock warnings come from local data. Per-part stock movement history is viewable from the stock table, including linked invoice numbers for sales. Stock reporting includes active references, units, low/out counts, purchase-value, theoretical sale-value, category/supplier/stock-state filters and Excel-friendly CSV export.
+- Editable establishment identity, address, phones, matricule fiscal, TVA default, invoice prefix/digits and default customer are persisted in SQLite. Validation prevents invalid fiscal/numbering values. Manual backup and integrity-checked restore are available from Settings, and restore keeps an automatic pre-restore safety copy of the active database.
+- Language selection persists locally; French remains the default and Arabic switches document direction to RTL. Ctrl+K performs global part/reference/OEM search and F2 opens the invoice product picker.
+- Windows CI builds the portable EXE, launches the packaged application in a database/migration smoke-test mode, and prepares a client delivery artifact with the EXE, quick guide and backup folder.
 - GitHub CI verifies install, TypeScript and Electron/Vite build on every push.
 
 ### Still intentionally open before client delivery
 
 - Confirm fiscal/legal invoice fields with the client (matricule fiscal, HT/TTC convention, TVA rules and invoice numbering).
 - Confirm the exact client fiscal values before final delivery; the app now makes them editable and snapshots them on finalized invoices.
-- Continue stock reporting polish, draft invoices, and cancellation/avoir rules if required.
-- Invoice draft persistence is implemented; cancellation/avoir rules if required and stronger print tests for long multi-page invoices remain.
+- Internal cancellation with stock reversal is implemented. A legally formatted fiscal avoir remains intentionally open until the client's accounting requirements are confirmed.
+- Multi-page print CSS now repeats table headers, keeps rows/totals together where possible and wraps long descriptions. Physical printer validation with production-like 20–50 line invoices still remains.
 - Test backup/restore with production-like data.
-- Run and validate the Windows portable artifact on the client's Windows machine and printer.
+- Run and validate the Windows portable artifact on the client's actual Windows machine and printer.
+
+
+## Delivery/testing documents
+
+- `docs/LIRE-MOI.txt` — simple client quick-start guide included in the delivery package.
+- `docs/CLIENT_HANDOFF.md` — technical handoff and USB-delivery notes.
+- `docs/ACCEPTANCE_TEST.md` — end-to-end acceptance checklist for stock, invoices, cancellation, backup/restore, printing and portable delivery.
