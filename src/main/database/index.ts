@@ -26,6 +26,7 @@ export function initializeDatabase(): DatabaseSync {
   database.exec('PRAGMA foreign_keys = ON;')
   database.exec('PRAGMA journal_mode = WAL;')
   database.exec('PRAGMA synchronous = NORMAL;')
+  database.exec('PRAGMA busy_timeout = 5000;')
   database.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version INTEGER PRIMARY KEY,
@@ -35,6 +36,7 @@ export function initializeDatabase(): DatabaseSync {
   `)
 
   applyMigrations(database)
+  assertDatabaseIntegrity(database)
 
   if (!app.isPackaged) {
     ensureDevelopmentSeed(database)
@@ -46,6 +48,20 @@ export function initializeDatabase(): DatabaseSync {
 export function closeDatabase(): void {
   database?.close()
   database = null
+}
+
+function assertDatabaseIntegrity(db: DatabaseSync): void {
+  const row = db.prepare('PRAGMA quick_check;').get() as
+    | Record<string, string>
+    | undefined
+
+  const result = row ? Object.values(row)[0] : 'unknown'
+  if (result !== 'ok') {
+    throw new Error(
+      `La base de données locale a échoué au contrôle d’intégrité: ${result}. ` +
+      'N’écrasez pas vos sauvegardes; restaurez une copie valide.'
+    )
+  }
 }
 
 function applyMigrations(db: DatabaseSync): void {
