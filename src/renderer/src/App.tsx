@@ -14,6 +14,7 @@ import { Language } from './i18n'
 export default function App(): JSX.Element {
   const [page, setPage] = useState<Page>('dashboard')
   const [business, setBusiness] = useState<BusinessSettings | null>(null)
+  const [invoiceDirty, setInvoiceDirty] = useState(false)
   const [stockSearch, setStockSearch] = useState({
     query: '',
     requestId: 0
@@ -44,12 +45,42 @@ export default function App(): JSX.Element {
     }
   }, [])
 
+  useEffect(() => {
+    if (!invoiceDirty) return
+
+    function handleBeforeUnload(event: BeforeUnloadEvent): void {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () =>
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [invoiceDirty])
+
+  function navigate(nextPage: Page): void {
+    if (
+      page === 'invoices'
+      && nextPage !== 'invoices'
+      && invoiceDirty
+    ) {
+      const confirmed = window.confirm(
+        'Cette facture contient des modifications non enregistrées. ' +
+        'Quitter cette page et perdre ces modifications ?'
+      )
+      if (!confirmed) return
+      setInvoiceDirty(false)
+    }
+
+    setPage(nextPage)
+  }
+
   function globalSearch(query: string): void {
     setStockSearch((current) => ({
       query,
       requestId: current.requestId + 1
     }))
-    setPage('stock')
+    navigate('stock')
   }
 
   return (
@@ -58,7 +89,7 @@ export default function App(): JSX.Element {
         page={page}
         lang={lang}
         business={business}
-        onNavigate={setPage}
+        onNavigate={navigate}
       />
 
       <main className="workspace">
@@ -70,7 +101,7 @@ export default function App(): JSX.Element {
 
         <div className="content-scroll">
           {page === 'dashboard' && (
-            <Dashboard lang={lang} onNavigate={setPage} />
+            <Dashboard lang={lang} onNavigate={navigate} />
           )}
           {page === 'stock' && (
             <Stock
@@ -79,9 +110,14 @@ export default function App(): JSX.Element {
               searchRequestId={stockSearch.requestId}
             />
           )}
-          {page === 'invoices' && <Invoices lang={lang} />}
+          {page === 'invoices' && (
+            <Invoices
+              lang={lang}
+              onDirtyChange={setInvoiceDirty}
+            />
+          )}
           {page === 'invoiceHistory' && (
-            <InvoiceHistory lang={lang} onNavigate={setPage} />
+            <InvoiceHistory lang={lang} onNavigate={navigate} />
           )}
           {page === 'clients' && <Clients lang={lang} />}
           {page === 'suppliers' && <Suppliers lang={lang} />}

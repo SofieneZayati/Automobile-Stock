@@ -52,7 +52,13 @@ type DraftCalculation = {
   adjustmentError: string | null
 }
 
-export function Invoices({ lang }: { lang: Language }): JSX.Element {
+export function Invoices({
+  lang,
+  onDirtyChange
+}: {
+  lang: Language
+  onDirtyChange?: (dirty: boolean) => void
+}): JSX.Element {
   const [lines, setLines] = useState<DraftLine[]>([])
   const [customer, setCustomer] = useState(t(lang, 'walkIn'))
   const [showPicker, setShowPicker] = useState(false)
@@ -65,6 +71,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
   const [drafts, setDrafts] = useState<InvoiceDraftListItem[]>([])
   const [savingDraft, setSavingDraft] = useState(false)
   const [savingPdf, setSavingPdf] = useState(false)
+  const [savedFingerprint, setSavedFingerprint] = useState('')
   const [draftNotice, setDraftNotice] = useState('')
   const [finalized, setFinalized] = useState<FinalizedInvoice | null>(null)
   const [finalizing, setFinalizing] = useState(false)
@@ -122,6 +129,40 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
     () => calculateDraft(lines, adjustmentMode, adjustmentText, taxPercent),
     [lines, adjustmentMode, adjustmentText, taxPercent]
   )
+
+  const contentFingerprint = useMemo(
+    () => invoiceContentFingerprint({
+      customer,
+      customerAddress,
+      customerTaxId,
+      notes,
+      adjustmentMode,
+      adjustmentText,
+      lines
+    }),
+    [
+      customer,
+      customerAddress,
+      customerTaxId,
+      notes,
+      adjustmentMode,
+      adjustmentText,
+      lines
+    ]
+  )
+
+  const dirty =
+    !finalized
+    && lines.length > 0
+    && contentFingerprint !== savedFingerprint
+
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+
+  useEffect(() => {
+    return () => onDirtyChange?.(false)
+  }, [onDirtyChange])
 
   useEffect(() => {
     function handleInvoiceShortcut(event: KeyboardEvent): void {
@@ -237,6 +278,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
         draftId ?? undefined
       )
       setDraftId(saved.id)
+      setSavedFingerprint(contentFingerprint)
       setDraftNotice('Brouillon enregistré dans la base locale.')
       await refreshDrafts()
     } catch (cause) {
@@ -263,23 +305,40 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
       setCustomerAddress(draft.customerAddress ?? '')
       setCustomerTaxId(draft.customerTaxId ?? '')
       setNotes(draft.notes ?? '')
-      setAdjustmentMode('discount')
-      setAdjustmentText(
+      const draftAdjustmentText =
         draft.globalDiscountTtcMillimes > 0
           ? editableTnd(draft.globalDiscountTtcMillimes)
           : ''
-      )
 
-      setLines(draft.lines.map((line, index) => ({
-        id: `draft-${draft.id}-${line.partId ?? index}-${index}`,
-        partId: line.partId ?? 0,
-        ref: line.reference,
-        designation: line.designation,
-        stockAvailable: line.currentStock ?? line.quantity,
-        qty: line.quantity,
-        listUnitPriceMillimes: line.unitPriceHtMillimes,
-        clientUnitPriceText: editableTnd(line.negotiatedUnitPriceHtMillimes)
-      })))
+      setAdjustmentMode('discount')
+      setAdjustmentText(draftAdjustmentText)
+
+      const restoredLines: DraftLine[] = draft.lines.map(
+        (line, index) => ({
+          id: `draft-${draft.id}-${line.partId ?? index}-${index}`,
+          partId: line.partId ?? 0,
+          ref: line.reference,
+          designation: line.designation,
+          stockAvailable: line.currentStock ?? line.quantity,
+          qty: line.quantity,
+          listUnitPriceMillimes: line.unitPriceHtMillimes,
+          clientUnitPriceText: editableTnd(
+            line.negotiatedUnitPriceHtMillimes
+          )
+        })
+      )
+      setLines(restoredLines)
+      setSavedFingerprint(
+        invoiceContentFingerprint({
+          customer: draft.customerName,
+          customerAddress: draft.customerAddress ?? '',
+          customerTaxId: draft.customerTaxId ?? '',
+          notes: draft.notes ?? '',
+          adjustmentMode: 'discount',
+          adjustmentText: draftAdjustmentText,
+          lines: restoredLines
+        })
+      )
 
       if (draft.clientId) {
         const candidates = await window.desktop.clients.list(draft.customerName)
@@ -378,6 +437,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
       )
 
       setFinalized(result)
+      setSavedFingerprint(contentFingerprint)
       setDraftId(null)
       setDraftNotice('')
       await refreshDrafts()
@@ -396,6 +456,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
     setCustomerTaxId('')
     setNotes('')
     setDraftId(null)
+    setSavedFingerprint('')
     setDraftNotice('')
     setFinalized(null)
     setAdjustmentMode('target')
@@ -1427,6 +1488,33 @@ function calculateDraft(
     adjustmentValue,
     adjustmentError
   }
+}
+
+function invoiceContentFingerprint(input: {
+  customer: string
+  customerAddress: string
+  customerTaxId: string
+  notes: string
+  adjustmentMode: AdjustmentMode
+  adjustmentText: string
+  lines: DraftLine[]
+}): string {
+  return JSON.stringify({
+    customer: input.customer.trim(),
+    customerAddress: input.customerAddress.trim(),
+    customerTaxId: input.customerTaxId.trim(),
+    notes: input.notes.trim(),
+    adjustmentMode: input.adjustmentMode,
+    adjustmentText: input.adjustmentText.trim(),
+    lines: input.lines.map((line) => ({
+      partId: line.partId,
+      ref: line.ref,
+      designation: line.designation,
+      qty: line.qty,
+      listUnitPriceMillimes: line.listUnitPriceMillimes,
+      clientUnitPriceText: line.clientUnitPriceText
+    }))
+  })
 }
 
 function formatDraftDate(value: string, locale: string): string {
