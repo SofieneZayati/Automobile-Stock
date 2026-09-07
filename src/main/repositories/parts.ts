@@ -94,6 +94,7 @@ export function createPart(input: CreatePartInput): Part {
   const threshold = requireNonNegativeInteger(input.lowStockThreshold ?? 0, 'lowStockThreshold')
 
   return inTransaction(db, () => {
+    ensureUniqueReference(reference)
     const categoryId = input.categoryName?.trim()
       ? ensureCategory(input.categoryName.trim())
       : null
@@ -133,7 +134,7 @@ export function createPart(input: CreatePartInput): Part {
     writeAudit('part', partId, 'CREATE', { reference, designation, initialQuantity })
 
     const created = getPart(partId)
-    if (!created) throw new Error('Created part could not be loaded')
+    if (!created) throw new Error('La pièce créée n’a pas pu être rechargée.')
     return created
   })
 }
@@ -150,7 +151,9 @@ export function updatePart(input: UpdatePartInput): Part {
 
   return inTransaction(db, () => {
     const current = getPart(partId)
-    if (!current) throw new Error('Part not found')
+    if (!current) throw new Error('Pièce introuvable.')
+
+    ensureUniqueReference(reference, partId)
 
     const categoryId = input.categoryName?.trim()
       ? ensureCategory(input.categoryName.trim())
@@ -188,7 +191,7 @@ export function updatePart(input: UpdatePartInput): Part {
       partId
     )
 
-    if (result.changes !== 1) throw new Error('Part could not be updated')
+    if (result.changes !== 1) throw new Error('La pièce n’a pas pu être modifiée.')
 
     writeAudit('part', partId, 'UPDATE', {
       reference,
@@ -198,7 +201,7 @@ export function updatePart(input: UpdatePartInput): Part {
     })
 
     const updated = getPart(partId)
-    if (!updated) throw new Error('Updated part could not be loaded')
+    if (!updated) throw new Error('La pièce modifiée n’a pas pu être rechargée.')
     return updated
   })
 }
@@ -207,7 +210,7 @@ export function setPartActive(partIdValue: number, isActive: boolean): Part {
   const db = getDatabase()
   const partId = requirePositiveInteger(partIdValue, 'partId')
   const current = getPart(partId)
-  if (!current) throw new Error('Part not found')
+  if (!current) throw new Error('Pièce introuvable.')
 
   db.prepare(`
     UPDATE parts
@@ -221,7 +224,7 @@ export function setPartActive(partIdValue: number, isActive: boolean): Part {
   })
 
   const updated = getPart(partId)
-  if (!updated) throw new Error('Updated part could not be loaded')
+  if (!updated) throw new Error('La pièce modifiée n’a pas pu être rechargée.')
   return updated
 }
 
@@ -229,14 +232,14 @@ export function adjustStock(input: AdjustStockInput): Part {
   const db = getDatabase()
   const partId = requirePositiveInteger(input.partId, 'partId')
   const delta = requireInteger(input.delta, 'delta')
-  if (delta === 0) throw new Error('Stock adjustment cannot be zero')
+  if (delta === 0) throw new Error('La variation de stock ne peut pas être égale à zéro.')
 
   return inTransaction(db, () => {
     const current = db.prepare('SELECT quantity FROM parts WHERE id = ? AND is_active = 1').get(partId) as { quantity: number } | undefined
-    if (!current) throw new Error('Part not found')
+    if (!current) throw new Error('Pièce introuvable.')
 
     const next = current.quantity + delta
-    if (next < 0) throw new Error('Stock cannot become negative')
+    if (next < 0) throw new Error('Le stock ne peut pas devenir négatif.')
 
     db.prepare(`
       UPDATE parts
@@ -258,7 +261,7 @@ export function adjustStock(input: AdjustStockInput): Part {
     })
 
     const updated = getPart(partId)
-    if (!updated) throw new Error('Updated part could not be loaded')
+    if (!updated) throw new Error('La pièce modifiée n’a pas pu être rechargée.')
     return updated
   })
 }
@@ -266,7 +269,7 @@ export function adjustStock(input: AdjustStockInput): Part {
 export function listStockMovements(partIdValue: number): StockMovement[] {
   const partId = requirePositiveInteger(partIdValue, 'partId')
   const part = getPart(partId)
-  if (!part) throw new Error('Part not found')
+  if (!part) throw new Error('Pièce introuvable.')
 
   const rows = getDatabase().prepare(`
     SELECT
@@ -326,17 +329,37 @@ export function getLowStockParts(limit = 8): Part[] {
   return rows.map(mapPart)
 }
 
+function ensureUniqueReference(
+  reference: string,
+  exceptPartId?: number
+): void {
+  const db = getDatabase()
+  const row = exceptPartId
+    ? db.prepare(
+        'SELECT id FROM parts WHERE reference = ? COLLATE NOCASE AND id <> ?'
+      ).get(reference, exceptPartId)
+    : db.prepare(
+        'SELECT id FROM parts WHERE reference = ? COLLATE NOCASE'
+      ).get(reference)
+
+  if (row) {
+    throw new Error(
+      `La référence ${reference} existe déjà dans le catalogue.`
+    )
+  }
+}
+
 function normalizeSupplierId(value?: number): number | null {
   if (value === undefined || value === null || value === 0) return null
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error('supplierId must be a positive integer')
+    throw new Error('Le fournisseur sélectionné est invalide.')
   }
 
   const row = getDatabase().prepare(
     'SELECT id FROM suppliers WHERE id = ?'
   ).get(value) as { id: number } | undefined
 
-  if (!row) throw new Error('Supplier not found')
+  if (!row) throw new Error('Fournisseur introuvable.')
   return row.id
 }
 
@@ -344,7 +367,7 @@ function ensureCategory(name: string): number {
   const db = getDatabase()
   db.prepare('INSERT OR IGNORE INTO categories(name) VALUES (?)').run(name)
   const row = db.prepare('SELECT id FROM categories WHERE name = ? COLLATE NOCASE').get(name) as { id: number } | undefined
-  if (!row) throw new Error('Category could not be created')
+  if (!row) throw new Error('Impossible de créer la catégorie.')
   return row.id
 }
 
@@ -380,26 +403,60 @@ function mapPart(row: PartRow): Part {
 
 function requireText(value: string, field: string): string {
   const trimmed = value?.trim()
-  if (!trimmed) throw new Error(`${field} is required`)
+  if (!trimmed) {
+    throw new Error(
+      field === 'reference'
+        ? 'La référence est obligatoire.'
+        : 'La désignation est obligatoire.'
+    )
+  }
+
+  const maxLength = field === 'reference' ? 80 : 220
+  if (trimmed.length > maxLength) {
+    throw new Error(
+      field === 'reference'
+        ? 'La référence est trop longue.'
+        : 'La désignation est trop longue.'
+    )
+  }
+
   return trimmed
 }
 
 function optionalText(value?: string): string | null {
   const trimmed = value?.trim()
-  return trimmed ? trimmed : null
+  return trimmed ? trimmed.slice(0, 500) : null
 }
 
 function requireNonNegativeInteger(value: number, field: string): number {
-  if (!Number.isInteger(value) || value < 0) throw new Error(`${field} must be a non-negative integer`)
+  if (!Number.isInteger(value) || value < 0) {
+    const labels: Record<string, string> = {
+      salePriceMillimes: 'Le prix de vente',
+      purchasePriceMillimes: 'Le prix d’achat',
+      initialQuantity: 'Le stock initial',
+      lowStockThreshold: 'Le seuil de stock faible'
+    }
+    throw new Error(
+      `${labels[field] ?? 'La valeur'} doit être un nombre positif ou nul.`
+    )
+  }
   return value
 }
 
 function requirePositiveInteger(value: number, field: string): number {
-  if (!Number.isInteger(value) || value <= 0) throw new Error(`${field} must be a positive integer`)
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(
+      field === 'partId'
+        ? 'La pièce sélectionnée est invalide.'
+        : 'L’identifiant de la pièce est invalide.'
+    )
+  }
   return value
 }
 
-function requireInteger(value: number, field: string): number {
-  if (!Number.isInteger(value)) throw new Error(`${field} must be an integer`)
+function requireInteger(value: number, _field: string): number {
+  if (!Number.isInteger(value)) {
+    throw new Error('La variation de stock doit être un nombre entier.')
+  }
   return value
 }

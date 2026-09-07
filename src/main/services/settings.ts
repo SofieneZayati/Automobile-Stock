@@ -35,6 +35,7 @@ export function getBusinessSettings(): BusinessSettings {
 
 export function updateBusinessSettings(input: BusinessSettings): BusinessSettings {
   const db = getDatabase()
+  validateBusinessSettings(input)
   const settings = normalizeBusinessSettings(input)
 
   db.prepare(`
@@ -56,6 +57,66 @@ export function updateBusinessSettings(input: BusinessSettings): BusinessSetting
   }))
 
   return settings
+}
+
+function validateBusinessSettings(input: BusinessSettings): void {
+  const requiredFields: Array<[string, string, number]> = [
+    ['Nom de l’établissement', input.companyName, 120],
+    ['Activité', input.activity, 120],
+    ['Adresse', input.address, 220],
+    ['Client par défaut', input.defaultCustomerName, 120]
+  ]
+
+  for (const [label, value, max] of requiredFields) {
+    if (!value?.trim()) {
+      throw new Error(`${label}: ce champ est obligatoire.`)
+    }
+    if (value.trim().length > max) {
+      throw new Error(`${label}: ce champ est trop long.`)
+    }
+  }
+
+  const optionalFields: Array<[string, string, number]> = [
+    ['Nom en arabe', input.companyNameAr, 120],
+    ['Activité en arabe', input.activityAr, 120],
+    ['Téléphone 1', input.phone1, 40],
+    ['Téléphone 2', input.phone2, 40],
+    ['Matricule fiscal', input.taxId, 80]
+  ]
+
+  for (const [label, value, max] of optionalFields) {
+    if ((value ?? '').trim().length > max) {
+      throw new Error(`${label}: ce champ est trop long.`)
+    }
+  }
+
+  if (
+    !Number.isFinite(input.defaultTaxPercent)
+    || input.defaultTaxPercent < 0
+    || input.defaultTaxPercent > 100
+  ) {
+    throw new Error('La TVA par défaut doit être comprise entre 0 et 100 %.')
+  }
+
+  if (
+    !Number.isInteger(input.invoiceDigits)
+    || input.invoiceDigits < 3
+    || input.invoiceDigits > 8
+  ) {
+    throw new Error(
+      'Le nombre de chiffres des factures doit être compris entre 3 et 8.'
+    )
+  }
+
+  const prefix = input.invoicePrefix?.trim().toUpperCase()
+  if (!prefix) {
+    throw new Error('Le préfixe de facture est obligatoire.')
+  }
+  if (!/^[A-Z0-9-]{1,8}$/.test(prefix)) {
+    throw new Error(
+      'Le préfixe de facture peut contenir uniquement A-Z, 0-9 et le tiret.'
+    )
+  }
 }
 
 export function normalizeBusinessSettings(value: unknown): BusinessSettings {

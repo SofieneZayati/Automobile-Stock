@@ -55,18 +55,18 @@ export function createClient(input: CreateClientInput): Client {
   `).run(id, JSON.stringify({ name, phone, taxId }))
 
   const client = getClient(id)
-  if (!client) throw new Error('Created client could not be loaded')
+  if (!client) throw new Error('Le client créé n’a pas pu être rechargé.')
   return client
 }
 
 export function updateClient(input: UpdateClientInput): Client {
   const db = getDatabase()
   if (!Number.isInteger(input.id) || input.id <= 0) {
-    throw new Error('Invalid client id')
+    throw new Error('Le client sélectionné est invalide.')
   }
 
   const existing = getClient(input.id)
-  if (!existing) throw new Error('Client not found')
+  if (!existing) throw new Error('Client introuvable.')
 
   const name = requiredText(input.name, 'name')
   const phone = cleanText(input.phone)
@@ -86,7 +86,7 @@ export function updateClient(input: UpdateClientInput): Client {
     WHERE id = ?
   `).run(name, phone, address, taxId, notes, input.id)
 
-  if (result.changes !== 1) throw new Error('Client could not be updated')
+  if (result.changes !== 1) throw new Error('Le client n’a pas pu être modifié.')
 
   db.prepare(`
     INSERT INTO audit_log(entity_type, entity_id, action, details_json)
@@ -94,7 +94,7 @@ export function updateClient(input: UpdateClientInput): Client {
   `).run(input.id, JSON.stringify({ name, phone, taxId }))
 
   const client = getClient(input.id)
-  if (!client) throw new Error('Updated client could not be loaded')
+  if (!client) throw new Error('Le client modifié n’a pas pu être rechargé.')
   return client
 }
 
@@ -145,8 +145,11 @@ function cleanText(value?: string): string | null {
   return text ? text.slice(0, 500) : null
 }
 
-function requiredText(value: string, field: string): string {
+function requiredText(value: string, _field: string): string {
   const text = value?.trim()
-  if (!text) throw new Error(`${field} is required`)
-  return text.slice(0, 160)
+  if (!text) throw new Error('Le nom du client est obligatoire.')
+  if (text.length > 160) {
+    throw new Error('Le nom du client est trop long.')
+  }
+  return text
 }

@@ -29,7 +29,7 @@ export function createSupplier(input: CreateSupplierInput): Supplier {
   const db = getDatabase()
   const name = requiredText(input.name, 'name')
   const phone = cleanText(input.phone)
-  const email = cleanText(input.email)
+  const email = validateEmail(input.email)
   const address = cleanText(input.address)
   const notes = cleanText(input.notes)
 
@@ -46,21 +46,21 @@ export function createSupplier(input: CreateSupplierInput): Supplier {
   `).run(id, JSON.stringify({ name, phone, email }))
 
   const supplier = getSupplier(id)
-  if (!supplier) throw new Error('Created supplier could not be loaded')
+  if (!supplier) throw new Error('Le fournisseur créé n’a pas pu être rechargé.')
   return supplier
 }
 
 export function updateSupplier(input: UpdateSupplierInput): Supplier {
   const db = getDatabase()
   if (!Number.isInteger(input.id) || input.id <= 0) {
-    throw new Error('Invalid supplier id')
+    throw new Error('Le fournisseur sélectionné est invalide.')
   }
 
-  if (!getSupplier(input.id)) throw new Error('Supplier not found')
+  if (!getSupplier(input.id)) throw new Error('Fournisseur introuvable.')
 
   const name = requiredText(input.name, 'name')
   const phone = cleanText(input.phone)
-  const email = cleanText(input.email)
+  const email = validateEmail(input.email)
   const address = cleanText(input.address)
   const notes = cleanText(input.notes)
 
@@ -76,7 +76,7 @@ export function updateSupplier(input: UpdateSupplierInput): Supplier {
     WHERE id = ?
   `).run(name, phone, email, address, notes, input.id)
 
-  if (result.changes !== 1) throw new Error('Supplier could not be updated')
+  if (result.changes !== 1) throw new Error('Le fournisseur n’a pas pu être modifié.')
 
   db.prepare(`
     INSERT INTO audit_log(entity_type, entity_id, action, details_json)
@@ -84,7 +84,7 @@ export function updateSupplier(input: UpdateSupplierInput): Supplier {
   `).run(input.id, JSON.stringify({ name, phone, email }))
 
   const supplier = getSupplier(input.id)
-  if (!supplier) throw new Error('Updated supplier could not be loaded')
+  if (!supplier) throw new Error('Le fournisseur modifié n’a pas pu être rechargé.')
   return supplier
 }
 
@@ -127,8 +127,25 @@ function cleanText(value?: string): string | null {
   return text ? text.slice(0, 500) : null
 }
 
-function requiredText(value: string, field: string): string {
+function requiredText(value: string, _field: string): string {
   const text = value?.trim()
-  if (!text) throw new Error(`${field} is required`)
-  return text.slice(0, 160)
+  if (!text) throw new Error('Le nom du fournisseur est obligatoire.')
+  if (text.length > 160) {
+    throw new Error('Le nom du fournisseur est trop long.')
+  }
+  return text
+}
+
+function validateEmail(value?: string): string | null {
+  const email = cleanText(value)
+  if (!email) return null
+
+  if (
+    email.length > 254
+    || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    throw new Error('L’adresse email du fournisseur est invalide.')
+  }
+
+  return email
 }

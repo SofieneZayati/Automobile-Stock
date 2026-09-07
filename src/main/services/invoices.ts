@@ -41,7 +41,7 @@ type ResolvedClient = {
 export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
   const db = getDatabase()
   if (!Array.isArray(input.lines) || input.lines.length === 0) {
-    throw new Error('Invoice must contain at least one line')
+    throw new Error('Ajoutez au moins une ligne avant de finaliser la facture.')
   }
 
   const business = getBusinessSettings()
@@ -63,10 +63,10 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
         designation: string
       } | undefined
 
-      if (!stock) throw new Error(`Part not found for line ${line.reference}`)
+      if (!stock) throw new Error(`La pièce ${line.reference} n’est plus disponible dans le catalogue actif.`)
       if (stock.quantity < line.quantity) {
         throw new Error(
-          `Insufficient stock for ${stock.reference} — ${stock.designation}`
+          `Stock insuffisant pour ${stock.reference} — ${stock.designation}. Disponible: ${stock.quantity}, demandé: ${line.quantity}.`
         )
       }
     }
@@ -130,7 +130,7 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
       )
 
       if (result.changes !== 1) {
-        throw new Error(`Stock changed while finalizing ${line.reference}`)
+        throw new Error(`Le stock de ${line.reference} a changé pendant la validation. Vérifiez la quantité et réessayez.`)
       }
 
       movementInsert.run(
@@ -164,7 +164,7 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
     )
 
     const finalized = getInvoice(invoiceId)
-    if (!finalized) throw new Error('Finalized invoice could not be loaded')
+    if (!finalized) throw new Error('La facture finalisée n’a pas pu être rechargée.')
     return finalized
   })
 }
@@ -175,7 +175,7 @@ export function saveInvoiceDraft(
 ): InvoiceDraft {
   const db = getDatabase()
   if (!Array.isArray(input.lines) || input.lines.length === 0) {
-    throw new Error('Draft must contain at least one line')
+    throw new Error('Ajoutez au moins une ligne avant d’enregistrer le brouillon.')
   }
 
   const business = getBusinessSettings()
@@ -221,7 +221,7 @@ export function saveInvoiceDraft(
       )
 
       if (result.changes !== 1) {
-        throw new Error('Draft could not be updated')
+        throw new Error('Le brouillon n’a pas pu être mis à jour.')
       }
 
       db.prepare('DELETE FROM invoice_lines WHERE invoice_id = ?').run(draftId)
@@ -266,7 +266,7 @@ export function saveInvoiceDraft(
     )
 
     const saved = getInvoiceDraft(id)
-    if (!saved) throw new Error('Saved draft could not be loaded')
+    if (!saved) throw new Error('Le brouillon enregistré n’a pas pu être rechargé.')
     return saved
   })
 }
@@ -410,15 +410,15 @@ export function cancelInvoice(
   reasonValue: string
 ): FinalizedInvoice {
   if (!Number.isInteger(id) || id <= 0) {
-    throw new Error('Invalid invoice id')
+    throw new Error('La facture sélectionnée est invalide.')
   }
 
   const reason = reasonValue?.trim()
   if (!reason) {
-    throw new Error('Cancellation reason is required')
+    throw new Error('La raison de l’annulation est obligatoire.')
   }
   if (reason.length > 500) {
-    throw new Error('Cancellation reason is too long')
+    throw new Error('La raison de l’annulation est trop longue.')
   }
 
   const db = getDatabase()
@@ -434,12 +434,12 @@ export function cancelInvoice(
       status: 'DRAFT' | 'FINALIZED' | 'CANCELLED'
     } | undefined
 
-    if (!invoice) throw new Error('Invoice not found')
+    if (!invoice) throw new Error('Facture introuvable.')
     if (invoice.status === 'CANCELLED') {
-      throw new Error('Invoice is already cancelled')
+      throw new Error('Cette facture est déjà annulée.')
     }
     if (invoice.status !== 'FINALIZED') {
-      throw new Error('Only finalized invoices can be cancelled')
+      throw new Error('Seule une facture finalisée peut être annulée.')
     }
 
     const statusResult = db.prepare(`
@@ -453,7 +453,7 @@ export function cancelInvoice(
     `).run(reason, id)
 
     if (statusResult.changes !== 1) {
-      throw new Error('Invoice status changed before cancellation')
+      throw new Error('Le statut de la facture a changé avant l’annulation. Rechargez l’historique et réessayez.')
     }
 
     const lines = db.prepare(`
@@ -491,7 +491,7 @@ export function cancelInvoice(
 
       if (!current) {
         throw new Error(
-          `Part missing while cancelling ${line.reference_snapshot}`
+          `La pièce ${line.reference_snapshot} est introuvable pendant l’annulation.`
         )
       }
 
@@ -499,7 +499,7 @@ export function cancelInvoice(
       const restored = restorePart.run(line.quantity, line.part_id)
       if (restored.changes !== 1) {
         throw new Error(
-          `Could not restore stock for ${line.reference_snapshot}`
+          `Impossible de réintégrer le stock de ${line.reference_snapshot}.`
         )
       }
 
@@ -526,7 +526,7 @@ export function cancelInvoice(
     )
 
     const cancelled = getInvoice(id)
-    if (!cancelled) throw new Error('Cancelled invoice could not be loaded')
+    if (!cancelled) throw new Error('La facture annulée n’a pas pu être rechargée.')
     return cancelled
   })
 }
@@ -688,7 +688,7 @@ export function listInvoicesByClient(
   clientIdValue: number
 ): InvoiceListItem[] {
   if (!Number.isInteger(clientIdValue) || clientIdValue <= 0) {
-    throw new Error('Invalid client id')
+    throw new Error('Le client sélectionné est invalide.')
   }
 
   const rows = getDatabase().prepare(`
@@ -838,14 +838,14 @@ function mapDraftLine(row: {
 
 function requireDraft(id: number): void {
   if (!Number.isInteger(id) || id <= 0) {
-    throw new Error('Invalid draft id')
+    throw new Error('Le brouillon sélectionné est invalide.')
   }
 
   const row = getDatabase().prepare(
     "SELECT id FROM invoices WHERE id = ? AND status = 'DRAFT'"
   ).get(id)
 
-  if (!row) throw new Error('Draft not found')
+  if (!row) throw new Error('Brouillon introuvable.')
 }
 
 function consumeDraft(id: number): void {
@@ -881,7 +881,7 @@ function resolveCustomer(
 function resolveClient(clientId?: number): ResolvedClient {
   if (clientId === undefined || clientId === null) return null
   if (!Number.isInteger(clientId) || clientId <= 0) {
-    throw new Error('Invalid client id')
+    throw new Error('Le client sélectionné est invalide.')
   }
 
   const row = getDatabase().prepare(`
@@ -890,7 +890,7 @@ function resolveClient(clientId?: number): ResolvedClient {
     WHERE id = ?
   `).get(clientId) as ResolvedClient | undefined
 
-  if (!row) throw new Error('Client not found')
+  if (!row) throw new Error('Client introuvable.')
   return row
 }
 
@@ -945,7 +945,7 @@ function calculateLine(
       'negotiatedUnitPriceHtMillimes'
     )
     if (negotiated > unitPrice) {
-      throw new Error('Negotiated unit price cannot exceed catalogue price')
+      throw new Error('Le prix client ne peut pas dépasser le prix catalogue.')
     }
 
     netUnitPriceHtMillimes = negotiated
@@ -1002,7 +1002,7 @@ function resolveGlobalDiscount(
   const hasDiscount = input.globalDiscountTtcMillimes !== undefined
 
   if (hasTarget && hasDiscount) {
-    throw new Error('Use either a target total or a global discount, not both')
+    throw new Error('Choisissez soit un total final, soit une remise globale, pas les deux.')
   }
 
   if (hasTarget) {
@@ -1011,7 +1011,7 @@ function resolveGlobalDiscount(
       'targetTotalTtcMillimes'
     )
     if (target > totalBeforeDiscount) {
-      throw new Error('Target total cannot exceed the invoice total')
+      throw new Error('Le total final demandé ne peut pas dépasser le total actuel de la facture.')
     }
     return totalBeforeDiscount - target
   }
@@ -1022,7 +1022,7 @@ function resolveGlobalDiscount(
       'globalDiscountTtcMillimes'
     )
     if (discount > totalBeforeDiscount) {
-      throw new Error('Global discount cannot exceed the invoice total')
+      throw new Error('La remise globale ne peut pas dépasser le total de la facture.')
     }
     return discount
   }
@@ -1037,27 +1037,58 @@ function cleanText(value?: string): string | null {
 
 function requireText(value: string, field: string): string {
   const text = value?.trim()
-  if (!text) throw new Error(`${field} is required`)
+  if (!text) {
+    throw new Error(
+      field === 'reference'
+        ? 'La référence de la ligne est obligatoire.'
+        : 'La désignation de la ligne est obligatoire.'
+    )
+  }
+
+  if (text.length > (field === 'reference' ? 80 : 300)) {
+    throw new Error(
+      field === 'reference'
+        ? 'La référence de la ligne est trop longue.'
+        : 'La désignation de la ligne est trop longue.'
+    )
+  }
+
   return text
 }
 
 function requirePositiveInteger(value: number, field: string): number {
   if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${field} must be a positive integer`)
+    throw new Error(
+      field === 'quantity'
+        ? 'La quantité doit être un nombre entier supérieur à zéro.'
+        : 'La valeur saisie doit être un nombre entier supérieur à zéro.'
+    )
   }
   return value
 }
 
 function requireNonNegativeInteger(value: number, field: string): number {
   if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`${field} must be a non-negative integer`)
+    const labels: Record<string, string> = {
+      unitPriceHtMillimes: 'Le prix catalogue',
+      negotiatedUnitPriceHtMillimes: 'Le prix client',
+      targetTotalTtcMillimes: 'Le total final',
+      globalDiscountTtcMillimes: 'La remise globale'
+    }
+    throw new Error(
+      `${labels[field] ?? 'La valeur'} doit être un montant positif ou nul.`
+    )
   }
   return value
 }
 
 function requirePercentage(value: number, field: string): number {
   if (!Number.isFinite(value) || value < 0 || value > 100) {
-    throw new Error(`${field} must be between 0 and 100`)
+    throw new Error(
+      field === 'taxPercent'
+        ? 'Le taux de TVA doit être compris entre 0 et 100 %.'
+        : 'La remise en pourcentage doit être comprise entre 0 et 100 %.'
+    )
   }
   return value
 }
