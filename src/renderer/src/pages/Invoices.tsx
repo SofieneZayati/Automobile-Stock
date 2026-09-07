@@ -381,7 +381,10 @@ export function Invoices({
       if (!deleted) throw new Error('Brouillon introuvable.')
       if (draftId === id) {
         setDraftId(null)
-        setDraftNotice('Brouillon supprimé. Les données restent dans l’éditeur tant que vous ne quittez pas.')
+        setSavedFingerprint('')
+        setDraftNotice(
+          'Brouillon supprimé. Les données restent dans l’éditeur mais ne sont plus sauvegardées.'
+        )
       }
       await refreshDrafts()
     } catch (cause) {
