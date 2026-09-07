@@ -4,7 +4,9 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
-  rmSync
+  readdirSync,
+  rmSync,
+  statSync
 } from 'node:fs'
 import { join, resolve } from 'node:path'
 import {
@@ -32,10 +34,17 @@ export async function createBackup(): Promise<BackupResult | null> {
     ? result.filePath
     : `${result.filePath}.sqlite3`
 
+  if (resolve(target) === resolve(getDatabasePath())) {
+    throw new Error(
+      'Choisissez un autre emplacement: ce fichier est la base de données active.'
+    )
+  }
+
   const db = getDatabase()
   db.exec('PRAGMA wal_checkpoint(FULL);')
   rmSync(target, { force: true })
   db.exec(`VACUUM INTO '${escapeSqlString(target)}';`)
+  validateBackup(target)
 
   return { path: target }
 }
@@ -117,9 +126,23 @@ function createPreRestoreSafetyCopy(destination: string): string | null {
 }
 
 function pruneSafetyCopies(folder: string): void {
-  // Keep cleanup intentionally conservative for now. Safety copies are
-  // small compared with the risk of losing the shop's active database.
-  void folder
+  const files = readdirSync(folder)
+    .filter((name) =>
+      name.startsWith('Ben-Mahmoud-Stock-Pre-Restore-')
+      && name.endsWith('.sqlite3')
+    )
+    .map((name) => {
+      const path = join(folder, name)
+      return {
+        path,
+        modifiedAt: statSync(path).mtimeMs
+      }
+    })
+    .sort((a, b) => b.modifiedAt - a.modifiedAt)
+
+  for (const old of files.slice(10)) {
+    rmSync(old.path, { force: true })
+  }
 }
 
 function validateBackup(path: string): string {
