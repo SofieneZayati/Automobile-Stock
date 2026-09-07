@@ -5,6 +5,7 @@ import {
   FileArchive,
   History,
   Languages,
+  Printer,
   RefreshCw,
   RotateCcw,
   Save,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { AuditEntry, BusinessSettings } from '../../../shared/contracts'
 import { Language } from '../i18n'
+import { PrintTestInvoice } from '../components/PrintTestInvoice'
 
 export function Settings({
   lang,
@@ -24,6 +26,7 @@ export function Settings({
   const [business, setBusiness] = useState<BusinessSettings | null>(null)
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
   const [auditLoading, setAuditLoading] = useState(true)
+  const [showPrintTest, setShowPrintTest] = useState(false)
   const [message, setMessage] = useState<{
     type: 'success' | 'error'
     text: string
@@ -372,6 +375,34 @@ export function Settings({
           </div>
         </section>
 
+        <section className="panel settings-card">
+          <div className="settings-card-heading">
+            <span className="settings-icon"><Printer size={20} /></span>
+            <div>
+              <h2>Test d’impression A4</h2>
+              <p>
+                Imprimez un document de contrôle de 36 lignes sans créer de
+                facture ni modifier le stock.
+              </p>
+            </div>
+          </div>
+
+          <div className="settings-note">
+            Vérifiez les descriptions longues, les en-têtes répétés sur
+            plusieurs pages et le bloc des totaux.
+          </div>
+
+          <button
+            className="secondary-button print-test-button"
+            type="button"
+            onClick={() => setShowPrintTest(true)}
+            disabled={!business}
+          >
+            <Printer size={17} />
+            Ouvrir le test imprimante
+          </button>
+        </section>
+
         <section className="panel settings-card backup-card">
           <div className="settings-card-heading">
             <span className="settings-icon"><DatabaseBackup size={20} /></span>
@@ -460,6 +491,14 @@ export function Settings({
           )}
         </section>
       </div>
+
+      {showPrintTest && business && (
+        <PrintTestInvoice
+          business={business}
+          lang={lang}
+          onClose={() => setShowPrintTest(false)}
+        />
+      )}
     </div>
   )
 }
