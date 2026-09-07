@@ -1574,3 +1574,24 @@ button:disabled { cursor: not-allowed; opacity: .58; }
     text-align: start;
   }
 }
+
+
+/* Invoice customer details and notes */
+.invoice-customer-details {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 10px;
+}
+.invoice-note-field {
+  margin-top: 10px;
+}
+.invoice-note-field textarea {
+  min-height: 74px;
+}
+
+@media (max-width: 760px) {
+  .invoice-customer-details {
+    grid-template-columns: 1fr;
+  }
+}

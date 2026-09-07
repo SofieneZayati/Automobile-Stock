@@ -59,6 +59,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [customerAddress, setCustomerAddress] = useState('')
   const [customerTaxId, setCustomerTaxId] = useState('')
+  const [notes, setNotes] = useState('')
   const [draftId, setDraftId] = useState<number | null>(null)
   const [drafts, setDrafts] = useState<InvoiceDraftListItem[]>([])
   const [savingDraft, setSavingDraft] = useState(false)
@@ -188,6 +189,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
       customerName: customer,
       customerAddress: (selectedClient?.address ?? customerAddress) || undefined,
       customerTaxId: (selectedClient?.taxId ?? customerTaxId) || undefined,
+      notes: notes.trim() || undefined,
       ...(adjustmentValue !== null && adjustmentMode === 'target'
         ? { targetTotalTtcMillimes: adjustmentValue }
         : {}),
@@ -258,6 +260,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
       setCustomer(draft.customerName)
       setCustomerAddress(draft.customerAddress ?? '')
       setCustomerTaxId(draft.customerTaxId ?? '')
+      setNotes(draft.notes ?? '')
       setAdjustmentMode('discount')
       setAdjustmentText(
         draft.globalDiscountTtcMillimes > 0
@@ -369,6 +372,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
     setCustomer(business?.defaultCustomerName ?? t(lang, 'walkIn'))
     setCustomerAddress('')
     setCustomerTaxId('')
+    setNotes('')
     setDraftId(null)
     setDraftNotice('')
     setFinalized(null)
@@ -384,6 +388,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
         customerName: finalized.customerName,
         customerAddress: finalized.customerAddress,
         customerTaxId: finalized.customerTaxId,
+        notes: finalized.notes,
         subtotalGrossHt: finalized.subtotalHtMillimes,
         lineDiscount: finalized.discountMillimes,
         netHt: finalized.subtotalHtMillimes - finalized.discountMillimes,
@@ -410,6 +415,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
         customerName: customer,
         customerAddress: (selectedClient?.address ?? customerAddress) || null,
         customerTaxId: (selectedClient?.taxId ?? customerTaxId) || null,
+        notes: notes.trim() || null,
         subtotalGrossHt: calculation.subtotalGrossHt,
         lineDiscount: calculation.lineDiscount,
         netHt: calculation.netHt,
@@ -608,6 +614,42 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
                   <X size={16} />
                 </button>
               </div>
+            )}
+
+            {!finalized && !selectedClient && (
+              <div className="invoice-customer-details">
+                <label className="field">
+                  <span>Adresse client</span>
+                  <input
+                    value={customerAddress}
+                    onChange={(event) => setCustomerAddress(event.target.value)}
+                    maxLength={220}
+                    placeholder="Facultatif"
+                  />
+                </label>
+                <label className="field">
+                  <span>Matricule fiscal client</span>
+                  <input
+                    value={customerTaxId}
+                    onChange={(event) => setCustomerTaxId(event.target.value)}
+                    maxLength={80}
+                    placeholder="Facultatif"
+                  />
+                </label>
+              </div>
+            )}
+
+            {!finalized && (
+              <label className="field invoice-note-field">
+                <span>Note facture</span>
+                <textarea
+                  rows={3}
+                  maxLength={500}
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Ex. règlement, observation ou message au client…"
+                />
+              </label>
             )}
           </div>
 
@@ -1106,6 +1148,7 @@ function InvoicePaper({
     customerName: string
     customerAddress: string | null
     customerTaxId: string | null
+    notes: string | null
     subtotalGrossHt: number
     lineDiscount: number
     netHt: number
@@ -1214,7 +1257,7 @@ function InvoicePaper({
       <div className="paper-bottom">
         <div className="paper-note">
           <span className="paper-label">NOTE</span>
-          <p>Merci pour votre confiance.</p>
+          <p>{paper.notes || 'Merci pour votre confiance.'}</p>
           <small>
             {paper.number === 'PROVISOIRE'
               ? 'Aperçu non comptabilisé — les remises peuvent encore être modifiées.'
