@@ -273,6 +273,10 @@ export type AuditEntry = {
   createdAt: string
 }
 
+export type PdfExportResult = {
+  path: string
+}
+
 export type StockExportResult = {
   path: string
   rowCount: number
@@ -333,5 +337,8 @@ export type DesktopApi = {
   }
   audit: {
     list: (limit?: number) => Promise<AuditEntry[]>
+  }
+  documents: {
+    saveCurrentInvoicePdf: (suggestedName?: string) => Promise<PdfExportResult | null>
   }
 }

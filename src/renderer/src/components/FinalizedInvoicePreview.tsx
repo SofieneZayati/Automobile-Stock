@@ -1,5 +1,5 @@
-import type { JSX } from 'react'
-import { Printer, X } from 'lucide-react'
+import { useState, type JSX } from 'react'
+import { FileDown, Printer, X } from 'lucide-react'
 import type { FinalizedInvoice } from '../../../shared/contracts'
 import { Language, localeFor } from '../i18n'
 import { formatTnd } from '../lib/money'
@@ -10,6 +10,8 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
   onClose: () => void
 }): JSX.Element {
   const locale = localeFor(lang)
+  const [savingPdf, setSavingPdf] = useState(false)
+  const [pdfError, setPdfError] = useState('')
   const finalizedAt = new Date(
     invoice.finalizedAt.replace(' ', 'T') + 'Z'
   ).toLocaleString(locale)
@@ -19,6 +21,24 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
         invoice.cancelledAt.replace(' ', 'T') + 'Z'
       ).toLocaleString(locale)
     : null
+
+  async function savePdf(): Promise<void> {
+    try {
+      setSavingPdf(true)
+      setPdfError('')
+      await window.desktop.documents.saveCurrentInvoicePdf(
+        `Facture-${invoice.number}`
+      )
+    } catch (cause) {
+      setPdfError(
+        cause instanceof Error
+          ? cause.message
+          : 'Impossible d’enregistrer le PDF.'
+      )
+    } finally {
+      setSavingPdf(false)
+    }
+  }
 
   return (
     <div
@@ -39,6 +59,15 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
             <strong>{invoice.number}</strong>
           </div>
           <div>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void savePdf()}
+              disabled={savingPdf}
+            >
+              <FileDown size={17} />
+              {savingPdf ? 'PDF…' : 'Enregistrer PDF'}
+            </button>
             <button className="secondary-button" type="button" onClick={() => window.print()}>
               <Printer size={17} />Imprimer
             </button>
@@ -47,6 +76,13 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
             </button>
           </div>
         </div>
+
+        {pdfError && (
+          <div className="inline-alert error invoice-preview-error">
+            {pdfError}
+            <button type="button" onClick={() => setPdfError('')}>Fermer</button>
+          </div>
+        )}
 
         <div className="history-paper-shell">
           <article

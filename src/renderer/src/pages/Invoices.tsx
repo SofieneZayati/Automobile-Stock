@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type JSX } from 'react'
 import {
   CheckCircle2,
+  FileDown,
   FilePenLine,
   FileText,
   Percent,
@@ -63,6 +64,7 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
   const [draftId, setDraftId] = useState<number | null>(null)
   const [drafts, setDrafts] = useState<InvoiceDraftListItem[]>([])
   const [savingDraft, setSavingDraft] = useState(false)
+  const [savingPdf, setSavingPdf] = useState(false)
   const [draftNotice, setDraftNotice] = useState('')
   const [finalized, setFinalized] = useState<FinalizedInvoice | null>(null)
   const [finalizing, setFinalizing] = useState(false)
@@ -332,6 +334,26 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
     }
   }
 
+  async function savePdf(): Promise<void> {
+    try {
+      setSavingPdf(true)
+      setError('')
+      await window.desktop.documents.saveCurrentInvoicePdf(
+        finalized
+          ? `Facture-${finalized.number}`
+          : 'Apercu-Facture'
+      )
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Impossible d’enregistrer le PDF.'
+      )
+    } finally {
+      setSavingPdf(false)
+    }
+  }
+
   async function finalize(): Promise<void> {
     if (lines.length === 0) {
       setError('Ajoutez au moins une pièce avant de valider la facture.')
@@ -455,6 +477,15 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
         <div className="heading-actions">
           {finalized ? (
             <>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => void savePdf()}
+                disabled={savingPdf}
+              >
+                <FileDown size={18} />
+                {savingPdf ? 'PDF…' : 'Enregistrer PDF'}
+              </button>
               <button className="secondary-button" type="button" onClick={() => window.print()}>
                 <Printer size={18} />Imprimer
               </button>
@@ -472,6 +503,15 @@ export function Invoices({ lang }: { lang: Language }): JSX.Element {
               >
                 <Save size={18} />
                 {savingDraft ? 'Enregistrement…' : draftId ? 'Mettre à jour' : t(lang, 'saveDraft')}
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => void savePdf()}
+                disabled={savingPdf || lines.length === 0}
+              >
+                <FileDown size={18} />
+                {savingPdf ? 'PDF…' : 'PDF'}
               </button>
               <button className="secondary-button" type="button" onClick={() => window.print()}>
                 <Printer size={18} />{t(lang, 'print')}

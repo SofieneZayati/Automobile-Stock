@@ -8,6 +8,7 @@ import { createBackup, restoreBackup } from '../services/backup'
 import { getBusinessSettings, updateBusinessSettings } from '../services/settings'
 import { exportPartsCsv } from '../services/exports'
 import { listAuditEntries } from '../services/audit'
+import { saveCurrentInvoicePdf } from '../services/pdf'
 import type { AdjustStockInput, BusinessSettings, CreateClientInput, CreatePartInput, CreateSupplierInput, FinalizeInvoiceInput, UpdateClientInput, UpdatePartInput, UpdateSupplierInput } from '../../shared/contracts'
 
 export function registerIpcHandlers(): void {
@@ -68,5 +69,14 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('audit:list', (_event, limit?: number) =>
     listAuditEntries(typeof limit === 'number' ? limit : 100)
+  )
+
+  ipcMain.handle(
+    'documents:save-invoice-pdf',
+    (event, suggestedName?: string) =>
+      saveCurrentInvoicePdf(
+        event.sender,
+        typeof suggestedName === 'string' ? suggestedName : undefined
+      )
   )
 }

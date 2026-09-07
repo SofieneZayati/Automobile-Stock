@@ -64,6 +64,10 @@ const api: DesktopApi = {
   },
   audit: {
     list: (limit = 100) => ipcRenderer.invoke('audit:list', limit)
+  },
+  documents: {
+    saveCurrentInvoicePdf: (suggestedName?: string) =>
+      ipcRenderer.invoke('documents:save-invoice-pdf', suggestedName)
   }
 }
 
