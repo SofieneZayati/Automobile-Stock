@@ -253,7 +253,7 @@ The application has moved beyond static UI mockups:
 - Confirm fiscal/legal invoice fields with the client (matricule fiscal, HT/TTC convention, TVA rules and invoice numbering).
 - Confirm the exact client fiscal values before final delivery; the app now makes them editable and snapshots them on finalized invoices.
 - Internal cancellation with stock reversal is implemented. A legally formatted fiscal avoir remains intentionally open until the client's accounting requirements are confirmed.
-- Multi-page print CSS repeats table headers, keeps rows/totals together where possible and wraps long descriptions. Settings now includes a built-in 36-line A4 printer stress test that does not touch stock or invoices. Physical printer validation on the client's actual printer still remains.
+- Multi-page print CSS repeats table headers, keeps rows/totals together where possible and wraps long descriptions. Settings includes a built-in 36-line A4 printer stress test that does not touch stock or invoices. Physical printer validation can still be done later if desired.
 - Test backup/restore with production-like data.
 - Run and validate the Windows portable artifact on the client's actual Windows machine and printer.
 
@@ -263,3 +263,30 @@ The application has moved beyond static UI mockups:
 - `docs/LIRE-MOI.txt` — simple client quick-start guide included in the delivery package.
 - `docs/CLIENT_HANDOFF.md` — technical handoff and USB-delivery notes.
 - `docs/ACCEPTANCE_TEST.md` — end-to-end acceptance checklist for stock, invoices, cancellation, backup/restore, printing and portable delivery.
+
+
+## Client-ready handoff
+
+The Windows delivery workflow now produces two deliberately separate artifacts/folders:
+
+### BEN MAHMOUD STOCK - CLIENT
+
+This is the folder intended for the shop:
+
+- `Ben-Mahmoud-Stock-Portable.exe`
+- `LIRE-MOI.txt`
+- `SAUVEGARDES/README.txt`
+
+The packaged application starts with no fake stock in production.
+
+### PREPARATION - A RETIRER AVANT LIVRAISON
+
+This folder is for project preparation and must normally be removed before handing the USB to the client. It contains:
+
+- `BASE-CLIENT-VIDE.sqlite3` — clean current-schema database with Ben Mahmoud defaults and no fake business data.
+- `BASE-DEMO-A-REMPLACER.sqlite3` — example database with clearly marked sample suppliers, clients, parts and one sample draft.
+- `CONFIGURATION-REELLE-A-COMPLETER.txt` — list of client-specific values that still need to be confirmed.
+- sample CSV files showing the expected information for parts, clients and suppliers.
+- `A-REMPLACER-AVANT-CLIENT.txt` — explicit instructions on what is placeholder data and what should be removed/replaced.
+
+The application can inspect either starter database through **Paramètres > Restaurer une sauvegarde**. The demo database should be used only on a preparation PC because restoring a database replaces the currently open business data.

@@ -1,0 +1,74 @@
+PREPARATION AVANT LIVRAISON — A RETIRER DU DOSSIER CLIENT
+
+Ce dossier est pour la préparation interne. NE PAS le donner au client final sauf si vous souhaitez lui montrer les exemples.
+
+1. BASE-CLIENT-VIDE.sqlite3
+- Base propre, compatible avec l'application.
+- Contient le schéma actuel et les paramètres Ben Mahmoud.
+- Aucun faux stock, faux client, faux fournisseur ou fausse facture.
+- Matricule fiscal laissé vide.
+- TVA 19 %, préfixe F et 4 chiffres sont des valeurs de départ À CONFIRMER.
+
+2. BASE-DEMO-A-REMPLACER.sqlite3
+- Base d'exemple pour comprendre l'application.
+- 3 fournisseurs exemple.
+- 3 clients exemple.
+- 12 pièces exemple.
+- 1 brouillon exemple.
+- Toutes les données sont clairement marquées EXEMPLE / A REMPLACER.
+- Pour l'ouvrir: Paramètres > Restaurer une sauvegarde > sélectionner la base DEMO.
+
+ATTENTION: restaurer une base remplace les données actuellement ouvertes. Utiliser la base DEMO uniquement sur le PC de préparation.
+
+3. CE QU'IL FAUT REMPLACER PAR LES VRAIES DONNEES
+
+Paramètres:
+- Matricule fiscal exact.
+- TVA exacte / convention HT-TTC.
+- Préfixe facture.
+- Nombre de chiffres.
+- Besoin éventuel d'un avoir fiscal.
+
+Fournisseurs:
+- Nom / société.
+- Téléphone.
+- Email.
+- Adresse.
+- Notes.
+
+Pièces:
+- Référence interne.
+- Désignation.
+- Référence OEM.
+- Compatibilité véhicule.
+- Catégorie.
+- Fournisseur.
+- Prix achat.
+- Prix vente.
+- Quantité actuelle réelle.
+- Seuil de stock faible.
+- Emplacement.
+- Notes.
+
+Clients:
+- Ajouter uniquement les clients à mémoriser.
+- Les ventes comptoir peuvent rester sous "Client comptoir".
+- Matricule fiscal client uniquement si nécessaire.
+
+4. SI LA BASE DEMO A ETE UTILISEE
+Avant une vraie livraison, supprimer/remplacer:
+- toutes les références EX-*;
+- tous les clients contenant EXEMPLE;
+- tous les fournisseurs contenant EXEMPLE;
+- le brouillon "BROUILLON EXEMPLE À SUPPRIMER".
+
+Le plus propre pour le client reste BASE-CLIENT-VIDE.sqlite3 ou la base vide créée automatiquement par l'application.
+
+5. DOSSIER FINAL A DONNER AU CLIENT
+Donner uniquement le dossier:
+BEN MAHMOUD STOCK - CLIENT/
+- Ben-Mahmoud-Stock-Portable.exe
+- LIRE-MOI.txt
+- SAUVEGARDES/
+
+Le dossier PREPARATION - A RETIRER AVANT LIVRAISON est pour toi.

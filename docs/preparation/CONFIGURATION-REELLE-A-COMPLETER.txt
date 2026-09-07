@@ -1,0 +1,29 @@
+CONFIGURATION REELLE A COMPLETER
+
+ETABLISSEMENT
+Nom: Etablissement Ben Mahmoud
+Activité: Équipement Automobiles
+Adresse: 31, Rue Chedly Kallala, 1002 Tunis
+Téléphone 1: 71 801 813
+Téléphone 2: 29 276 853
+Matricule fiscal: ______________________________
+
+FACTURATION
+TVA par défaut: 19 %  [A CONFIRMER]
+Préfixe facture: F  [A CONFIRMER]
+Nombre de chiffres: 4  [A CONFIRMER]
+Convention prix: HT / TTC  [A CONFIRMER]
+Avoir fiscal nécessaire: OUI / NON  [A CONFIRMER]
+
+STOCK
+Nombre approximatif de références à saisir: __________________
+Le magasin utilise déjà une référence interne: OUI / NON
+Organisation rayon/emplacement existante: ____________________
+Seuil de stock faible standard: ______________________________
+
+FOURNISSEURS
+Nombre approximatif: __________________
+
+CLIENTS ENREGISTRES
+Nombre approximatif: __________________
+Les clients comptoir restent sans fiche: OUI / NON

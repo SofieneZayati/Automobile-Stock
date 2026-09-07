@@ -33,6 +33,9 @@ jobs:
       - name: Build portable EXE
         run: npm run dist:portable
 
+      - name: Create starter databases
+        run: npm run starter:data
+
       - name: Smoke test portable EXE
         shell: pwsh
         run: |
@@ -53,15 +56,25 @@ jobs:
             throw "Portable EXE was not produced."
           }
 
-          $delivery = "release/BEN MAHMOUD STOCK"
+          $delivery = "release/BEN MAHMOUD STOCK - CLIENT"
           $backup = Join-Path $delivery "SAUVEGARDES"
+          $preparation = "release/PREPARATION - A RETIRER AVANT LIVRAISON"
 
           New-Item -ItemType Directory -Force -Path $delivery | Out-Null
           New-Item -ItemType Directory -Force -Path $backup | Out-Null
+          New-Item -ItemType Directory -Force -Path $preparation | Out-Null
 
           Copy-Item $exe.FullName (Join-Path $delivery "Ben-Mahmoud-Stock-Portable.exe")
           Copy-Item "docs/LIRE-MOI.txt" (Join-Path $delivery "LIRE-MOI.txt")
           Copy-Item "docs/SAUVEGARDES-README.txt" (Join-Path $backup "README.txt")
+
+          Copy-Item "release/preparation/BASE-CLIENT-VIDE.sqlite3" (Join-Path $preparation "BASE-CLIENT-VIDE.sqlite3")
+          Copy-Item "release/preparation/BASE-DEMO-A-REMPLACER.sqlite3" (Join-Path $preparation "BASE-DEMO-A-REMPLACER.sqlite3")
+          Copy-Item "docs/preparation/A-REMPLACER-AVANT-CLIENT.txt" (Join-Path $preparation "A-REMPLACER-AVANT-CLIENT.txt")
+          Copy-Item "docs/preparation/CONFIGURATION-REELLE-A-COMPLETER.txt" (Join-Path $preparation "CONFIGURATION-REELLE-A-COMPLETER.txt")
+          Copy-Item "docs/preparation/PIECES-EXEMPLES.csv" (Join-Path $preparation "PIECES-EXEMPLES.csv")
+          Copy-Item "docs/preparation/CLIENTS-EXEMPLES.csv" (Join-Path $preparation "CLIENTS-EXEMPLES.csv")
+          Copy-Item "docs/preparation/FOURNISSEURS-EXEMPLES.csv" (Join-Path $preparation "FOURNISSEURS-EXEMPLES.csv")
 
       - name: Upload portable app
         uses: actions/upload-artifact@v4
@@ -74,5 +87,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Ben-Mahmoud-Stock-Client-Package
-          path: release/BEN MAHMOUD STOCK/**
+          path: release/BEN MAHMOUD STOCK - CLIENT/**
+          if-no-files-found: error
+
+      - name: Upload preparation package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ben-Mahmoud-Stock-Preparation-Package
+          path: release/PREPARATION - A RETIRER AVANT LIVRAISON/**
           if-no-files-found: error
