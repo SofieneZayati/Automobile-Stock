@@ -1,60 +1,55 @@
 BEN MAHMOUD STOCK — GUIDE RAPIDE
 
-1. OUVRIR L'APPLICATION
+OUVRIR L'APPLICATION
 - Double-cliquez sur "Ben-Mahmoud-Stock-Portable.exe".
 - Aucun navigateur, serveur, Node.js ou terminal n'est nécessaire.
-- Les données restent enregistrées sur le PC du magasin.
+- La base de données est créée automatiquement au premier lancement.
+- Les données sont conservées sur le PC du magasin, pas dans l'EXE.
 
-2. PREMIÈRE UTILISATION
-Ouvrez "Paramètres" et vérifiez:
+PREMIÈRE CONFIGURATION
+Ouvrez "Paramètres" et renseignez/vérifiez:
 - nom et activité de l'établissement;
 - adresse et téléphones;
 - matricule fiscal;
 - TVA par défaut;
 - préfixe et format des numéros de facture.
 
-3. STOCK
-- Utilisez "Pièces & stock" pour ajouter ou rechercher une pièce.
-- Utilisez "Ajuster le stock" pour toute entrée, retour ou correction.
-- Ne modifiez jamais la quantité en changeant la fiche de la pièce.
-- L'historique garde les mouvements de stock.
+SAISIR LE STOCK
+1. Ajoutez d'abord les fournisseurs utiles dans "Fournisseurs".
+2. Ouvrez "Pièces & stock" puis "Ajouter une pièce".
+3. Pour chaque pièce, saisissez:
+   - référence;
+   - désignation;
+   - référence OEM si disponible;
+   - compatibilité véhicule;
+   - catégorie;
+   - fournisseur;
+   - prix d'achat;
+   - prix de vente;
+   - quantité actuelle;
+   - seuil de stock faible;
+   - emplacement/rayon.
+4. Pour les réapprovisionnements suivants, utilisez "Ajuster le stock" au lieu de modifier la quantité manuellement.
 
-4. FACTURES
+CLIENTS
+- Les clients réguliers peuvent être enregistrés dans "Clients".
+- Pour une vente simple, "Client comptoir" peut être utilisé sans créer de fiche client.
+
+FACTURES
 - Ajoutez les pièces depuis le stock réel.
 - Le prix client peut être négocié avant validation.
-- Exemple: 21,700 DT peut devenir 21,000 DT ou 20,000 DT.
-- Le total final peut aussi être arrondi, par exemple 205 DT vers 200 DT.
-- Un brouillon peut être enregistré et rouvert plus tard.
-- Le numéro définitif est attribué uniquement à la validation.
+- Le total final peut aussi être arrondi commercialement.
+- Un brouillon peut être enregistré puis rouvert plus tard.
+- Le numéro définitif est attribué uniquement lors de la validation.
+- Une facture peut être imprimée ou enregistrée en PDF.
 
-5. ANNULATION
-- Une facture finalisée peut être annulée avec une raison.
-- La facture originale reste dans l'historique.
-- Le stock vendu est automatiquement réintégré.
-- Cette fonction est une annulation interne; elle ne remplace pas un avoir fiscal si la comptabilité du magasin en exige un.
-
-6. SAUVEGARDE
-Dans Paramètres > Sauvegarde:
+SAUVEGARDE
+Dans "Paramètres > Sauvegarde des données":
 - créez régulièrement une sauvegarde;
-- choisissez de préférence le dossier SAUVEGARDES de la clé USB;
-- avant une restauration, l'application conserve automatiquement une copie de sécurité de la base actuelle.
+- enregistrez une copie sur une clé USB ou un disque externe;
+- la restauration vérifie le fichier avant de remplacer les données actives.
 
-7. TEST IMPRIMANTE
-Dans Paramètres > Test d'impression A4:
-- ouvrez le document de contrôle de 36 lignes;
-- imprimez-le sur l'imprimante réelle du magasin;
-- vérifiez les sauts de page, les en-têtes répétés, les longues désignations et les totaux.
-Ce test ne crée aucune facture et ne modifie pas le stock.
-
-8. MISE À JOUR
+MISE À JOUR
 - Fermez l'application.
 - Remplacez uniquement l'ancien EXE par le nouvel EXE.
-- Les données du magasin ne sont pas stockées dans l'EXE et ne sont donc pas supprimées lors d'une mise à jour normale.
-
-IMPORTANT AVANT LIVRAISON DÉFINITIVE
-Confirmer avec l'établissement:
-- matricule fiscal exact;
-- règles HT/TTC et TVA;
-- numérotation des factures;
-- besoin éventuel d'un avoir fiscal;
-- impression sur l'imprimante réelle du magasin.
+- La base de données du magasin n'est pas stockée dans l'EXE, donc une mise à jour normale ne supprime pas le stock ni l'historique.

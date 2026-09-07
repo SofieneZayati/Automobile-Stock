@@ -5,7 +5,6 @@ import {
   FileArchive,
   History,
   Languages,
-  Printer,
   RefreshCw,
   RotateCcw,
   Save,
@@ -13,7 +12,6 @@ import {
 } from 'lucide-react'
 import type { AuditEntry, BusinessSettings } from '../../../shared/contracts'
 import { Language } from '../i18n'
-import { PrintTestInvoice } from '../components/PrintTestInvoice'
 
 export function Settings({
   lang,
@@ -26,7 +24,6 @@ export function Settings({
   const [business, setBusiness] = useState<BusinessSettings | null>(null)
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
   const [auditLoading, setAuditLoading] = useState(true)
-  const [showPrintTest, setShowPrintTest] = useState(false)
   const [message, setMessage] = useState<{
     type: 'success' | 'error'
     text: string
@@ -261,7 +258,7 @@ export function Settings({
                   <span>Matricule fiscal</span>
                   <input
                     value={business.taxId}
-                    placeholder="À confirmer avec le client"
+                    placeholder="Ex. 1234567/A/M/000"
                     onChange={(event) => patchBusiness('taxId', event.target.value)}
                   />
                 </label>
@@ -330,7 +327,7 @@ export function Settings({
 
               <div className="settings-save-row">
                 <div className="settings-note fiscal-warning">
-                  La TVA et le matricule fiscal restent à confirmer avec l’établissement avant la livraison définitive. Aucun identifiant fiscal n’est inventé automatiquement.
+                  Vérifiez le matricule fiscal, la TVA et la numérotation avant d’émettre les premières factures réelles.
                 </div>
                 <button
                   className="primary-button"
@@ -373,34 +370,6 @@ export function Settings({
           <div className="settings-note">
             Changez la langue avec le sélecteur FR / EN / AR dans la barre supérieure.
           </div>
-        </section>
-
-        <section className="panel settings-card">
-          <div className="settings-card-heading">
-            <span className="settings-icon"><Printer size={20} /></span>
-            <div>
-              <h2>Test d’impression A4</h2>
-              <p>
-                Imprimez un document de contrôle de 36 lignes sans créer de
-                facture ni modifier le stock.
-              </p>
-            </div>
-          </div>
-
-          <div className="settings-note">
-            Vérifiez les descriptions longues, les en-têtes répétés sur
-            plusieurs pages et le bloc des totaux.
-          </div>
-
-          <button
-            className="secondary-button print-test-button"
-            type="button"
-            onClick={() => setShowPrintTest(true)}
-            disabled={!business}
-          >
-            <Printer size={17} />
-            Ouvrir le test imprimante
-          </button>
         </section>
 
         <section className="panel settings-card backup-card">
@@ -492,13 +461,6 @@ export function Settings({
         </section>
       </div>
 
-      {showPrintTest && business && (
-        <PrintTestInvoice
-          business={business}
-          lang={lang}
-          onClose={() => setShowPrintTest(false)}
-        />
-      )}
     </div>
   )
 }
