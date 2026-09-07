@@ -243,17 +243,17 @@ The application has moved beyond static UI mockups:
 - Finalizing an invoice is transactional: stock is checked, a configurable sequential number is assigned, immutable line/business snapshots are written and SALE movements decrement stock together.
 - Invoice drafts can be saved, reopened, updated, deleted, and consumed safely when finalizing. Finalized invoices have searchable history/reprint, per-client history, negotiated per-item prices and whole-invoice discounts. Finalized invoices can be cancelled internally with a required reason while restoring stock through cancellation movements.
 - Dashboard totals and low-stock warnings come from local data. Per-part stock movement history is viewable from the stock table, including linked invoice numbers for sales. Stock reporting includes active references, units, low/out counts, purchase-value, theoretical sale-value, category/supplier/stock-state filters and Excel-friendly CSV export.
-- Editable establishment identity, address, phones, matricule fiscal, TVA default, invoice prefix/digits and default customer are persisted in SQLite. Validation prevents invalid fiscal/numbering values. Manual backup and integrity-checked restore are available from Settings, and restore keeps an automatic pre-restore safety copy of the active database.
+- Editable establishment identity, address, phones, matricule fiscal, TVA default, invoice prefix/digits and default customer are persisted in SQLite. Validation prevents invalid fiscal/numbering values. Manual backups are integrity-checked immediately after creation; restore keeps an automatic pre-restore safety copy and retains the 10 newest safety copies.
 - Language selection persists locally; French remains the default and Arabic switches document direction to RTL. Ctrl+K performs global part/reference/OEM search and F2 opens the invoice product picker.
-- Windows CI builds the portable EXE, launches the packaged application in a database/migration smoke-test mode, and prepares a client delivery artifact with the EXE, quick guide and backup folder.
-- GitHub CI verifies install, TypeScript and Electron/Vite build on every push.
+- Windows CI builds the portable EXE with a Ben Mahmoud icon, launches the packaged application in database/migration smoke-test mode, and prepares a client delivery artifact with the EXE, quick guide and backup folder.
+- GitHub CI verifies install, TypeScript and Electron/Vite build on every push. The app enforces a single running instance and checks SQLite integrity on startup before opening the shop UI.
 
 ### Still intentionally open before client delivery
 
 - Confirm fiscal/legal invoice fields with the client (matricule fiscal, HT/TTC convention, TVA rules and invoice numbering).
 - Confirm the exact client fiscal values before final delivery; the app now makes them editable and snapshots them on finalized invoices.
 - Internal cancellation with stock reversal is implemented. A legally formatted fiscal avoir remains intentionally open until the client's accounting requirements are confirmed.
-- Multi-page print CSS now repeats table headers, keeps rows/totals together where possible and wraps long descriptions. Physical printer validation with production-like 20–50 line invoices still remains.
+- Multi-page print CSS repeats table headers, keeps rows/totals together where possible and wraps long descriptions. Settings now includes a built-in 36-line A4 printer stress test that does not touch stock or invoices. Physical printer validation on the client's actual printer still remains.
 - Test backup/restore with production-like data.
 - Run and validate the Windows portable artifact on the client's actual Windows machine and printer.
 

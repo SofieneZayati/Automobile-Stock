@@ -39,7 +39,14 @@ Dans Paramètres > Sauvegarde:
 - choisissez de préférence le dossier SAUVEGARDES de la clé USB;
 - avant une restauration, l'application conserve automatiquement une copie de sécurité de la base actuelle.
 
-7. MISE À JOUR
+7. TEST IMPRIMANTE
+Dans Paramètres > Test d'impression A4:
+- ouvrez le document de contrôle de 36 lignes;
+- imprimez-le sur l'imprimante réelle du magasin;
+- vérifiez les sauts de page, les en-têtes répétés, les longues désignations et les totaux.
+Ce test ne crée aucune facture et ne modifie pas le stock.
+
+8. MISE À JOUR
 - Fermez l'application.
 - Remplacez uniquement l'ancien EXE par le nouvel EXE.
 - Les données du magasin ne sont pas stockées dans l'EXE et ne sont donc pas supprimées lors d'une mise à jour normale.
