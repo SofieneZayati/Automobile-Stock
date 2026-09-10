@@ -1,0 +1,56 @@
+BEN MAHMOUD STOCK — CE QUE L'APPLICATION PERMET DE FAIRE
+
+ACCUEIL
+- Voir en un coup d'œil la valeur du stock, les ventes et les alertes.
+- Retrouver rapidement une pièce, un client, un fournisseur ou une facture.
+
+PIÈCES ET STOCK
+- Enregistrer les références, désignations, véhicules compatibles et emplacements.
+- Noter le prix d'achat, le prix de vente et le fournisseur.
+- Suivre les quantités disponibles.
+- Repérer les articles presque épuisés.
+- Ajouter une livraison ou une correction d'inventaire.
+- Consulter l'historique des mouvements de chaque pièce.
+
+CLIENTS
+- Conserver le nom, le téléphone, l'adresse et le matricule fiscal.
+- Voir les factures d'un client depuis sa fiche.
+- Ajouter automatiquement un nouveau client lors de sa première facture.
+- Reconnaître un client déjà présent grâce à son nom et son téléphone.
+
+FOURNISSEURS
+- Conserver les coordonnées et les remarques utiles.
+- Associer chaque pièce à son fournisseur habituel.
+
+FACTURES
+- Créer une facture à partir des articles en stock.
+- Appliquer un prix client, une remise ou un total final négocié.
+- Enregistrer une facture en brouillon et la reprendre plus tard.
+- Numéroter automatiquement les factures validées.
+- Diminuer automatiquement le stock après une vente.
+- Imprimer les factures ou les enregistrer en PDF.
+- Consulter l'historique et corriger une facture saisie par erreur.
+- Enregistrer un retour partiel ou complet depuis la facture d'origine.
+- Réintégrer automatiquement au stock les pièces réellement retournées.
+- Préparer un échange en ouvrant une nouvelle facture pour le même client.
+- Conserver la raison et l'historique de chaque retour.
+
+VENTES
+- Voir les ventes du jour, des 7 derniers jours, du mois ou de l'année.
+- Déduire les retours pour afficher le chiffre net réel.
+- Voir les pièces les plus vendues et la marge estimée.
+
+PARAMÈTRES
+- Renseigner les coordonnées et les informations fiscales du magasin.
+- Choisir la TVA et la présentation des numéros de facture.
+- Créer automatiquement une copie de sécurité chaque jour.
+- Créer une copie manuelle sur une clé USB ou un disque externe.
+- Restaurer une ancienne copie en cas de besoin.
+
+LANGUES
+- Utiliser l'application en français, en anglais ou en arabe.
+
+LISTE DE DÉPART
+L'application contient déjà quelques clients, fournisseurs et pièces courantes
+pour faciliter la prise en main. Avant la première vente, vérifiez leurs prix,
+leurs références et leurs quantités avec le stock réel du magasin.

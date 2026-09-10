@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import {
+  BarChart3,
   Boxes,
   FileText,
   Gauge,
@@ -9,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { BusinessSettings } from '../../../shared/contracts'
 import { Brand } from './Brand'
+import { BrandLogo } from './BrandLogo'
 import { Language, t } from '../i18n'
 
 export type Page =
@@ -16,6 +18,7 @@ export type Page =
   | 'stock'
   | 'invoices'
   | 'invoiceHistory'
+  | 'reports'
   | 'clients'
   | 'suppliers'
   | 'settings'
@@ -41,6 +44,7 @@ export function Sidebar({
       label: t(lang, 'invoices'),
       icon: FileText
     },
+    { id: 'reports' as const, label: t(lang, 'reports'), icon: BarChart3 },
     { id: 'clients' as const, label: t(lang, 'clients'), icon: Users },
     {
       id: 'suppliers' as const,
@@ -85,7 +89,7 @@ export function Sidebar({
       </nav>
 
       <div className="sidebar-card">
-        <div className="sidebar-card-icon">BM</div>
+        <BrandLogo className="sidebar-card-logo" />
         <div>
           <strong>{address}</strong>
           <span>{phones.join(' · ')}</span>

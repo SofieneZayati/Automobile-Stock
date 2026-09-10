@@ -172,6 +172,7 @@ export type InvoiceDraft = {
   id: number
   clientId: number | null
   customerName: string
+  customerPhone: string | null
   customerAddress: string | null
   customerTaxId: string | null
   notes: string | null
@@ -198,6 +199,10 @@ export type InvoiceListItem = {
   taxMillimes: number
   totalTtcMillimes: number
   lineCount: number
+  returnCount: number
+  returnedTtcMillimes: number
+  netTtcMillimes: number
+  returnStatus: 'NONE' | 'PARTIAL' | 'FULL'
 }
 
 export type DashboardOverview = {
@@ -221,6 +226,7 @@ export type FinalizeInvoiceInput = {
   draftId?: number
   clientId?: number
   customerName?: string
+  customerPhone?: string
   customerAddress?: string
   customerTaxId?: string
   notes?: string
@@ -230,6 +236,8 @@ export type FinalizeInvoiceInput = {
 }
 
 export type FinalizedInvoiceLine = {
+  invoiceLineId: number
+  partId: number | null
   reference: string
   designation: string
   quantity: number
@@ -240,6 +248,42 @@ export type FinalizedInvoiceLine = {
   lineHtMillimes: number
   taxMillimes: number
   lineTtcMillimes: number
+  returnedQuantity: number
+  returnableQuantity: number
+}
+
+export type InvoiceReturnLine = {
+  id: number
+  invoiceLineId: number
+  partId: number | null
+  reference: string
+  designation: string
+  quantity: number
+  lineHtMillimes: number
+  taxMillimes: number
+  lineTtcMillimes: number
+}
+
+export type InvoiceReturn = {
+  id: number
+  number: string
+  reason: string
+  subtotalHtMillimes: number
+  taxMillimes: number
+  grossTtcMillimes: number
+  globalDiscountShareMillimes: number
+  refundTtcMillimes: number
+  createdAt: string
+  lines: InvoiceReturnLine[]
+}
+
+export type ReturnInvoiceInput = {
+  invoiceId: number
+  reason: string
+  lines: Array<{
+    invoiceLineId: number
+    quantity: number
+  }>
 }
 
 export type FinalizedInvoice = {
@@ -248,6 +292,7 @@ export type FinalizedInvoice = {
   status: 'FINALIZED' | 'CANCELLED'
   clientId: number | null
   customerName: string
+  customerPhone: string | null
   customerAddress: string | null
   customerTaxId: string | null
   notes: string | null
@@ -260,8 +305,41 @@ export type FinalizedInvoice = {
   taxMillimes: number
   totalBeforeGlobalDiscountTtcMillimes: number
   totalTtcMillimes: number
+  returnedTtcMillimes: number
+  netTtcMillimes: number
+  returnStatus: 'NONE' | 'PARTIAL' | 'FULL'
   business: BusinessSettings
   lines: FinalizedInvoiceLine[]
+  returns: InvoiceReturn[]
+}
+
+export type SalesReportRange = 'today' | 'week' | 'month' | 'year'
+
+export type SalesReport = {
+  range: SalesReportRange
+  summary: {
+    invoiceCount: number
+    grossSalesTtcMillimes: number
+    returnedTtcMillimes: number
+    netSalesTtcMillimes: number
+    estimatedProfitMillimes: number
+  }
+  activity: Array<{
+    date: string
+    invoiceCount: number
+    salesTtcMillimes: number
+    returnedTtcMillimes: number
+    netTtcMillimes: number
+  }>
+  topParts: Array<{
+    partId: number | null
+    reference: string
+    designation: string
+    soldQuantity: number
+    returnedQuantity: number
+    netQuantity: number
+    netSalesTtcMillimes: number
+  }>
 }
 
 export type AuditEntry = {
@@ -284,6 +362,13 @@ export type StockExportResult = {
 
 export type BackupResult = {
   path: string
+}
+
+export type AutomaticBackupStatus = {
+  folder: string
+  latestPath: string | null
+  latestAt: string | null
+  backupCount: number
 }
 
 export type RestoreResult = {
@@ -326,10 +411,15 @@ export type DesktopApi = {
     listDrafts: () => Promise<InvoiceDraftListItem[]>
     deleteDraft: (id: number) => Promise<boolean>
     cancel: (id: number, reason: string) => Promise<FinalizedInvoice>
+    returnItems: (input: ReturnInvoiceInput) => Promise<FinalizedInvoice>
   }
   backup: {
     create: () => Promise<BackupResult | null>
     restore: () => Promise<RestoreResult | null>
+    automaticStatus: () => Promise<AutomaticBackupStatus>
+  }
+  reports: {
+    sales: (range: SalesReportRange) => Promise<SalesReport>
   }
   settings: {
     getBusiness: () => Promise<BusinessSettings>

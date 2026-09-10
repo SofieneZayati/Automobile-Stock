@@ -1,20 +1,23 @@
 import { useEffect, useState, type JSX } from 'react'
-import type { BusinessSettings } from '../../shared/contracts'
+import type { BusinessSettings, FinalizedInvoice } from '../../shared/contracts'
 import { Sidebar, Page } from './components/Sidebar'
 import { Topbar } from './components/Topbar'
 import { Dashboard } from './pages/Dashboard'
-import { Invoices } from './pages/Invoices'
+import { Invoices, type InvoiceCustomerPrefill } from './pages/Invoices'
 import { InvoiceHistory } from './pages/InvoiceHistory'
 import { Clients } from './pages/Clients'
 import { Suppliers } from './pages/Suppliers'
 import { Settings } from './pages/Settings'
 import { Stock } from './pages/Stock'
+import { Reports } from './pages/Reports'
 import { Language } from './i18n'
 
 export default function App(): JSX.Element {
   const [page, setPage] = useState<Page>('dashboard')
   const [business, setBusiness] = useState<BusinessSettings | null>(null)
   const [invoiceDirty, setInvoiceDirty] = useState(false)
+  const [invoiceCustomerPrefill, setInvoiceCustomerPrefill] =
+    useState<InvoiceCustomerPrefill | null>(null)
   const [stockSearch, setStockSearch] = useState({
     query: '',
     requestId: 0
@@ -83,6 +86,19 @@ export default function App(): JSX.Element {
     navigate('stock')
   }
 
+  function startExchange(invoice: FinalizedInvoice): void {
+    setInvoiceDirty(false)
+    setInvoiceCustomerPrefill({
+      key: `${invoice.id}-${Date.now()}`,
+      customerName: invoice.customerName,
+      customerPhone: invoice.customerPhone,
+      customerAddress: invoice.customerAddress,
+      customerTaxId: invoice.customerTaxId,
+      sourceInvoiceNumber: invoice.number
+    })
+    setPage('invoices')
+  }
+
   return (
     <div className="app-shell">
       <Sidebar
@@ -114,11 +130,17 @@ export default function App(): JSX.Element {
             <Invoices
               lang={lang}
               onDirtyChange={setInvoiceDirty}
+              customerPrefill={invoiceCustomerPrefill}
             />
           )}
           {page === 'invoiceHistory' && (
-            <InvoiceHistory lang={lang} onNavigate={navigate} />
+            <InvoiceHistory
+              lang={lang}
+              onNavigate={navigate}
+              onStartExchange={startExchange}
+            />
           )}
+          {page === 'reports' && <Reports lang={lang} />}
           {page === 'clients' && <Clients lang={lang} />}
           {page === 'suppliers' && <Suppliers lang={lang} />}
           {page === 'settings' && (

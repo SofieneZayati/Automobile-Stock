@@ -17,7 +17,7 @@ import type {
   InvoiceListItem,
   UpdateClientInput
 } from '../../../shared/contracts'
-import { Language, localeFor } from '../i18n'
+import { Language, localeFor, t, tr } from '../i18n'
 import { formatTnd } from '../lib/money'
 import { FinalizedInvoicePreview } from '../components/FinalizedInvoicePreview'
 
@@ -56,7 +56,7 @@ export function Clients({ lang }: { lang: Language }): JSX.Element {
         if (active) setClients(result)
       } catch (cause) {
         if (active) {
-          setError(cause instanceof Error ? cause.message : 'Impossible de charger les clients.')
+          setError(cause instanceof Error ? cause.message : tr(lang, 'Impossible de charger les clients.', 'Unable to load customers.', 'تعذر تحميل الحرفاء.'))
         }
       } finally {
         if (active) setLoading(false)
@@ -67,7 +67,7 @@ export function Clients({ lang }: { lang: Language }): JSX.Element {
       active = false
       window.clearTimeout(timeout)
     }
-  }, [query])
+  }, [query, lang])
 
   function openCreate(): void {
     setEditing(null)
@@ -88,16 +88,14 @@ export function Clients({ lang }: { lang: Language }): JSX.Element {
     <div className="page clients-page">
       <section className="page-heading">
         <div>
-          <span className="eyebrow">Répertoire commercial</span>
-          <h1>Clients</h1>
-          <p>
-            Enregistrez les coordonnées utiles pour éviter de ressaisir les mêmes informations à chaque facture.
-          </p>
+          <span className="eyebrow">{tr(lang, 'Répertoire commercial', 'Customer directory', 'دليل الحرفاء')}</span>
+          <h1>{t(lang, 'clients')}</h1>
+          <p>{tr(lang, 'Enregistrez les coordonnées utiles pour éviter de ressaisir les mêmes informations à chaque facture.', 'Save contact details so you do not have to enter them again on every invoice.', 'احفظ بيانات الاتصال لتجنب إدخالها من جديد في كل فاتورة.')}</p>
         </div>
         <div className="heading-actions">
           <button className="primary-button" type="button" onClick={openCreate}>
             <UserPlus size={18} />
-            Nouveau client
+            {tr(lang, 'Nouveau client', 'New customer', 'حريف جديد')}
           </button>
         </div>
       </section>
@@ -105,7 +103,7 @@ export function Clients({ lang }: { lang: Language }): JSX.Element {
       {error && (
         <div className="inline-alert error">
           {error}
-          <button type="button" onClick={() => setError('')}>Fermer</button>
+          <button type="button" onClick={() => setError('')}>{tr(lang, 'Fermer', 'Close', 'إغلاق')}</button>
         </div>
       )}
 
@@ -116,27 +114,27 @@ export function Clients({ lang }: { lang: Language }): JSX.Element {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Nom, téléphone, matricule fiscal ou adresse…"
+              placeholder={tr(lang, 'Nom, téléphone, matricule fiscal ou adresse…', 'Name, phone, tax ID or address…', 'الاسم أو الهاتف أو المعرّف الجبائي أو العنوان…')}
             />
           </label>
-          <span>{clients.length} client{clients.length === 1 ? '' : 's'}</span>
+          <span>{tr(lang, `${clients.length} client${clients.length === 1 ? '' : 's'}`, `${clients.length} customer(s)`, `${clients.length} حريف`)}</span>
         </div>
 
         {loading ? (
-          <div className="panel-empty">Chargement…</div>
+          <div className="panel-empty">{tr(lang, 'Chargement…', 'Loading…', 'جار التحميل…')}</div>
         ) : clients.length === 0 ? (
           <div className="client-empty-state">
             <div className="client-empty-icon"><Building2 size={24} /></div>
-            <strong>{query ? 'Aucun client trouvé' : 'Aucun client enregistré'}</strong>
+            <strong>{query ? tr(lang, 'Aucun client trouvé', 'No customer found', 'لم يتم العثور على حريف') : tr(lang, 'Aucun client enregistré', 'No customer saved', 'لا يوجد حريف مسجل')}</strong>
             <p>
               {query
-                ? 'Essayez une autre recherche.'
-                : 'Ajoutez un client pour retrouver rapidement son adresse, téléphone et matricule fiscal.'}
+                ? tr(lang, 'Essayez une autre recherche.', 'Try another search.', 'جرّب بحثًا آخر.')
+                : tr(lang, 'Ajoutez un client pour retrouver rapidement son adresse, téléphone et matricule fiscal.', 'Add a customer to quickly find their address, phone and tax ID.', 'أضف حريفًا للوصول بسرعة إلى عنوانه وهاتفه ومعرّفه الجبائي.')}
             </p>
             {!query && (
               <button className="secondary-button" type="button" onClick={openCreate}>
                 <UserPlus size={17} />
-                Ajouter le premier client
+                {tr(lang, 'Ajouter le premier client', 'Add the first customer', 'إضافة أول حريف')}
               </button>
             )}
           </div>
@@ -150,7 +148,7 @@ export function Clients({ lang }: { lang: Language }): JSX.Element {
                   </div>
                   <div>
                     <strong>{client.name}</strong>
-                    <small>{client.taxId ? `MF: ${client.taxId}` : 'Sans matricule fiscal'}</small>
+                    <small>{client.taxId ? `MF: ${client.taxId}` : tr(lang, 'Sans matricule fiscal', 'No tax ID', 'دون معرّف جبائي')}</small>
                   </div>
                   <div className="client-card-actions">
                     <button
@@ -158,7 +156,7 @@ export function Clients({ lang }: { lang: Language }): JSX.Element {
                       type="button"
                       onClick={() => setHistoryClient(client)}
                       aria-label={`Factures de ${client.name}`}
-                      title="Historique des factures"
+                      title={tr(lang, 'Historique des factures', 'Invoice history', 'سجل الفواتير')}
                     >
                       <FileText size={16} />
                     </button>
@@ -167,7 +165,7 @@ export function Clients({ lang }: { lang: Language }): JSX.Element {
                       type="button"
                       onClick={() => openEdit(client)}
                       aria-label={`Modifier ${client.name}`}
-                      title="Modifier le client"
+                      title={tr(lang, 'Modifier le client', 'Edit customer', 'تعديل الحريف')}
                     >
                       <Pencil size={16} />
                     </button>
@@ -177,11 +175,11 @@ export function Clients({ lang }: { lang: Language }): JSX.Element {
                 <div className="client-details">
                   <div>
                     <Phone size={15} />
-                    <span>{client.phone || 'Téléphone non renseigné'}</span>
+                    <span>{client.phone || tr(lang, 'Téléphone non renseigné', 'Phone not entered', 'الهاتف غير مسجل')}</span>
                   </div>
                   <div>
                     <MapPin size={15} />
-                    <span>{client.address || 'Adresse non renseignée'}</span>
+                    <span>{client.address || tr(lang, 'Adresse non renseignée', 'Address not entered', 'العنوان غير مسجل')}</span>
                   </div>
                 </div>
 
@@ -205,6 +203,7 @@ export function Clients({ lang }: { lang: Language }): JSX.Element {
       {showForm && (
         <ClientModal
           client={editing}
+          lang={lang}
           onClose={() => setShowForm(false)}
           onSaved={async () => {
             setShowForm(false)
@@ -275,7 +274,7 @@ function ClientInvoiceHistory({
     (invoice) => invoice.status === 'FINALIZED'
   )
   const totalBusiness = activeInvoices.reduce(
-    (sum, invoice) => sum + invoice.totalTtcMillimes,
+    (sum, invoice) => sum + invoice.netTtcMillimes,
     0
   )
 
@@ -291,11 +290,10 @@ function ClientInvoiceHistory({
         <div className="modal-card wide client-history-modal">
           <div className="modal-heading">
             <div>
-              <span className="eyebrow">Historique client</span>
+              <span className="eyebrow">{tr(lang, 'Historique client', 'Customer history', 'سجل الحريف')}</span>
               <h2>{client.name}</h2>
               <p>
-                Factures liées à cette fiche client. Les ventes annulées
-                restent visibles mais ne sont pas comptées dans le chiffre.
+                {tr(lang, 'Factures liées à cette fiche. Les annulations restent visibles et les retours sont déduits du total.', 'Invoices linked to this customer. Cancellations remain visible and returns are deducted from the total.', 'الفواتير المرتبطة بهذا الحريف. تبقى الإلغاءات ظاهرة وتُطرح المرتجعات من المجموع.')}
               </p>
             </div>
             <button
@@ -309,17 +307,17 @@ function ClientInvoiceHistory({
 
           <div className="client-history-summary">
             <div>
-              <span>Factures actives</span>
+              <span>{tr(lang, 'Factures actives', 'Active invoices', 'الفواتير النشطة')}</span>
               <strong>{activeInvoices.length}</strong>
             </div>
             <div>
-              <span>Annulées</span>
+              <span>{tr(lang, 'Annulées', 'Cancelled', 'ملغاة')}</span>
               <strong>
                 {invoices.length - activeInvoices.length}
               </strong>
             </div>
             <div>
-              <span>Total TTC historique</span>
+              <span>{tr(lang, 'Total TTC net', 'Net total', 'المجموع الصافي')}</span>
               <strong>{formatTnd(totalBusiness, locale)}</strong>
             </div>
           </div>
@@ -327,10 +325,10 @@ function ClientInvoiceHistory({
           {error && <div className="inline-alert error">{error}</div>}
 
           {loading ? (
-            <div className="panel-empty">Chargement…</div>
+            <div className="panel-empty">{tr(lang, 'Chargement…', 'Loading…', 'جار التحميل…')}</div>
           ) : invoices.length === 0 ? (
             <div className="panel-empty">
-              Aucune facture finalisée liée à ce client.
+              {tr(lang, 'Aucune facture finalisée liée à ce client.', 'No finalized invoice is linked to this customer.', 'لا توجد فاتورة مؤكدة مرتبطة بهذا الحريف.')}
             </div>
           ) : (
             <div className="client-history-list">
@@ -361,12 +359,16 @@ function ClientInvoiceHistory({
                     }
                   >
                     {invoice.status === 'CANCELLED'
-                      ? 'Annulée'
-                      : 'Finalisée'}
+                      ? tr(lang, 'Annulée', 'Cancelled', 'ملغاة')
+                      : invoice.returnStatus === 'FULL'
+                        ? tr(lang, 'Retournée', 'Returned', 'مرتجعة')
+                        : invoice.returnStatus === 'PARTIAL'
+                          ? tr(lang, 'Retour partiel', 'Partially returned', 'إرجاع جزئي')
+                          : tr(lang, 'Finalisée', 'Finalized', 'مؤكدة')}
                   </span>
 
                   <strong>
-                    {formatTnd(invoice.totalTtcMillimes, locale)}
+                    {formatTnd(invoice.netTtcMillimes, locale)}
                   </strong>
 
                   <button
@@ -375,7 +377,7 @@ function ClientInvoiceHistory({
                     onClick={() => void openInvoice(invoice.id)}
                   >
                     <Eye size={15} />
-                    Ouvrir
+                    {tr(lang, 'Ouvrir', 'Open', 'فتح')}
                   </button>
                 </div>
               ))}
@@ -388,7 +390,7 @@ function ClientInvoiceHistory({
               type="button"
               onClick={onClose}
             >
-              Fermer
+              {tr(lang, 'Fermer', 'Close', 'إغلاق')}
             </button>
           </div>
         </div>
@@ -420,10 +422,12 @@ function formatClientInvoiceDate(
 
 function ClientModal({
   client,
+  lang,
   onClose,
   onSaved
 }: {
   client: Client | null
+  lang: Language
   onClose: () => void
   onSaved: () => Promise<void>
 }): JSX.Element {
@@ -449,7 +453,7 @@ function ClientModal({
 
   async function save(): Promise<void> {
     if (!form.name.trim()) {
-      setError('Le nom du client est obligatoire.')
+      setError(tr(lang, 'Le nom du client est obligatoire.', 'Customer name is required.', 'اسم الحريف إجباري.'))
       return
     }
 
@@ -470,7 +474,7 @@ function ClientModal({
 
       await onSaved()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible d’enregistrer le client.')
+      setError(cause instanceof Error ? cause.message : tr(lang, 'Impossible d’enregistrer le client.', 'Unable to save customer.', 'تعذر حفظ الحريف.'))
     } finally {
       setSaving(false)
     }
@@ -487,9 +491,9 @@ function ClientModal({
       <div className="modal-card wide">
         <div className="modal-heading">
           <div>
-            <span className="eyebrow">{client ? 'Modification' : 'Nouveau contact'}</span>
-            <h2>{client ? client.name : 'Ajouter un client'}</h2>
-            <p>Les informations pourront ensuite être reprises sur une facture.</p>
+            <span className="eyebrow">{client ? tr(lang, 'Modification', 'Edit', 'تعديل') : tr(lang, 'Nouveau contact', 'New contact', 'جهة اتصال جديدة')}</span>
+            <h2>{client ? client.name : tr(lang, 'Ajouter un client', 'Add a customer', 'إضافة حريف')}</h2>
+            <p>{tr(lang, 'Les informations pourront ensuite être reprises sur une facture.', 'These details can then be reused on an invoice.', 'يمكن بعد ذلك استعمال هذه البيانات في الفاتورة.')}</p>
           </div>
           <button className="icon-button" type="button" onClick={onClose}>
             <X size={18} />
@@ -500,17 +504,17 @@ function ClientModal({
 
         <div className="form-grid">
           <label className="field full">
-            <span>Nom / société *</span>
+            <span>{tr(lang, 'Nom / société *', 'Name / company *', 'الاسم / الشركة *')}</span>
             <input
               autoFocus
               value={form.name}
               onChange={(event) => patch('name', event.target.value)}
-              placeholder="Ex. Garage El Menzah"
+              placeholder={tr(lang, 'Ex. Garage El Menzah', 'E.g. El Menzah Garage', 'مثال: مرآب المنزه')}
             />
           </label>
 
           <label className="field">
-            <span>Téléphone</span>
+            <span>{tr(lang, 'Téléphone', 'Phone', 'الهاتف')}</span>
             <input
               value={form.phone}
               onChange={(event) => patch('phone', event.target.value)}
@@ -519,40 +523,40 @@ function ClientModal({
           </label>
 
           <label className="field">
-            <span>Matricule fiscal</span>
+            <span>{tr(lang, 'Matricule fiscal', 'Tax ID', 'المعرّف الجبائي')}</span>
             <input
               value={form.taxId}
               onChange={(event) => patch('taxId', event.target.value)}
-              placeholder="Facultatif"
+              placeholder={tr(lang, 'Facultatif', 'Optional', 'اختياري')}
             />
           </label>
 
           <label className="field full">
-            <span>Adresse</span>
+            <span>{tr(lang, 'Adresse', 'Address', 'العنوان')}</span>
             <input
               value={form.address}
               onChange={(event) => patch('address', event.target.value)}
-              placeholder="Adresse complète"
+              placeholder={tr(lang, 'Adresse complète', 'Full address', 'العنوان الكامل')}
             />
           </label>
 
           <label className="field full">
-            <span>Notes</span>
+            <span>{tr(lang, 'Notes', 'Notes', 'ملاحظات')}</span>
             <textarea
               rows={4}
               value={form.notes}
               onChange={(event) => patch('notes', event.target.value)}
-              placeholder="Informations utiles, habitudes, conditions commerciales…"
+              placeholder={tr(lang, 'Informations utiles, habitudes, conditions commerciales…', 'Useful information, preferences, business terms…', 'معلومات مفيدة، عادات، شروط تجارية…')}
             />
           </label>
         </div>
 
         <div className="modal-actions">
           <button className="secondary-button" type="button" onClick={onClose} disabled={saving}>
-            Annuler
+            {tr(lang, 'Annuler', 'Cancel', 'إلغاء')}
           </button>
           <button className="primary-button" type="button" onClick={() => void save()} disabled={saving}>
-            {saving ? 'Enregistrement…' : client ? 'Enregistrer les modifications' : 'Créer le client'}
+            {saving ? tr(lang, 'Enregistrement…', 'Saving…', 'جار الحفظ…') : client ? tr(lang, 'Enregistrer les modifications', 'Save changes', 'حفظ التعديلات') : tr(lang, 'Créer le client', 'Create customer', 'إنشاء الحريف')}
           </button>
         </div>
       </div>

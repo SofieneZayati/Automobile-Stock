@@ -5,6 +5,7 @@ const copy = {
     dashboard: 'Tableau de bord',
     stock: 'Pièces & stock',
     invoices: 'Factures',
+    reports: 'Ventes',
     clients: 'Clients',
     suppliers: 'Fournisseurs',
     settings: 'Paramètres',
@@ -37,6 +38,7 @@ const copy = {
     dashboard: 'Dashboard',
     stock: 'Parts & stock',
     invoices: 'Invoices',
+    reports: 'Sales',
     clients: 'Customers',
     suppliers: 'Suppliers',
     settings: 'Settings',
@@ -69,6 +71,7 @@ const copy = {
     dashboard: 'لوحة التحكم',
     stock: 'القطع والمخزون',
     invoices: 'الفواتير',
+    reports: 'المبيعات',
     clients: 'الحرفاء',
     suppliers: 'المزودون',
     settings: 'الإعدادات',
@@ -103,6 +106,17 @@ export type CopyKey = keyof typeof copy.fr
 
 export function t(lang: Language, key: CopyKey): string {
   return copy[lang][key]
+}
+
+export function tr(
+  lang: Language,
+  french: string,
+  english: string,
+  arabic: string
+): string {
+  if (lang === 'ar') return arabic
+  if (lang === 'en') return english
+  return french
 }
 
 export function localeFor(lang: Language): string {

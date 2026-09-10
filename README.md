@@ -35,19 +35,24 @@ Fiscal values such as the matricule fiscal, TVA and invoice numbering remain edi
 
 The application is offline-first and uses SQLite.
 
-The database is **created automatically on first launch**. There is no database file that the client has to copy manually.
+The database is **installed automatically on first launch** from the supplied clean
+`Ben-Mahmoud-Stock-Clean.sqlite3` database embedded in the application. There is
+no database file that the client has to copy manually, and an existing shop
+database is never overwritten by an application update.
 
-A fresh installation contains:
+A fresh installation contains a small, editable starter list:
 
 - the application schema;
 - Ben Mahmoud establishment defaults;
-- no fake parts;
-- no fake suppliers;
-- no fake clients;
-- no fake invoices;
-- no fake stock movements.
+- 16 common parts in 8 categories;
+- 5 supplier brands;
+- 4 starting customer records;
+- opening stock movements for the supplied quantities;
+- no sample invoices or drafts.
 
-Business data is then entered through the application itself.
+The starter references, prices and quantities must be checked against the real
+shop stock before the first sale. Business data is then maintained through the
+application itself.
 
 For initial setup, the recommended order is:
 
@@ -57,7 +62,9 @@ For initial setup, the recommended order is:
 4. Add regular clients if the shop wants to save them.
 5. Create a backup once the initial catalog is complete.
 
-The active database lives in the operating system's Electron application-data folder rather than next to the portable EXE. Replacing the EXE during a normal update therefore does not replace the shop database.
+The active database lives in the operating system's Electron application-data
+folder rather than inside the delivery folder. Replacing the application folder
+during a normal update therefore does not replace the shop database.
 
 ## Stock data for each part
 
@@ -90,6 +97,11 @@ Finalization is transactional:
 - the finalized invoice becomes historical and immutable.
 
 The invoice editor supports negotiated unit prices and whole-invoice commercial adjustments before finalization.
+
+It also records the customer phone number. On finalization, a manually entered
+customer is linked to an existing customer when the normalized name and phone
+both match. Otherwise a new customer record is created automatically. The
+default walk-in customer is never added to the customer list.
 
 ## Backups
 
@@ -128,25 +140,41 @@ Build the Windows portable application:
 npm run dist:portable
 ```
 
+Run the automated database/invoice integration test and prepare the final client
+folder:
+
+```bash
+npm run verify
+npm run dist:client
+```
+
 Output:
 
 ```text
-release/Ben-Mahmoud-Stock-Portable-0.1.0.exe
+release/Ben-Mahmoud-Stock-Portable-0.2.0.exe
 ```
 
 ## Client delivery
 
-The Windows workflow prepares one clean client folder:
+The Windows workflow prepares one fast-launch client folder. Its Electron support
+files are hidden on Windows so the shop owner sees only the launcher and guides:
 
 ```text
-BEN MAHMOUD STOCK/
-├── Ben-Mahmoud-Stock-Portable.exe
+BEN MAHMOUD STOCK - RAPIDE/
+├── OUVRIR BEN MAHMOUD STOCK.exe
 ├── LIRE-MOI.txt
+├── FONCTIONS DE L'APPLICATION.txt
+├── VERSION.txt
 └── SAUVEGARDES/
     └── README.txt
 ```
 
-The client only needs the portable application. The database is initialized automatically on the shop PC.
+The ready-to-copy folder is generated under
+`delivery/BEN MAHMOUD STOCK - RAPIDE`. Copy
+the complete folder to the shop PC; do not move the EXE by itself. Unlike the
+single-file portable build, this edition does not extract Electron on every
+launch, so normal startup is much faster. The database is initialized
+automatically on the shop PC.
 
 ## Technology
 

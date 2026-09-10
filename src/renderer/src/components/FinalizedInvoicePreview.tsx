@@ -1,8 +1,9 @@
 import { useState, type JSX } from 'react'
 import { FileDown, Printer, X } from 'lucide-react'
 import type { FinalizedInvoice } from '../../../shared/contracts'
-import { Language, localeFor } from '../i18n'
+import { Language, localeFor, tr } from '../i18n'
 import { formatTnd } from '../lib/money'
+import { BrandLogo } from './BrandLogo'
 
 export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
   invoice: FinalizedInvoice
@@ -14,7 +15,7 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
   const [pdfError, setPdfError] = useState('')
   const finalizedAt = new Date(
     invoice.finalizedAt.replace(' ', 'T') + 'Z'
-  ).toLocaleString(locale)
+  ).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })
   const netHt = invoice.subtotalHtMillimes - invoice.discountMillimes
   const cancelledAt = invoice.cancelledAt
     ? new Date(
@@ -33,7 +34,7 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
       setPdfError(
         cause instanceof Error
           ? cause.message
-          : 'Impossible d’enregistrer le PDF.'
+          : tr(lang, 'Impossible d’enregistrer le PDF.', 'Unable to save the PDF.', 'تعذر حفظ ملف PDF.')
       )
     } finally {
       setSavingPdf(false)
@@ -53,8 +54,8 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
           <div>
             <span className="eyebrow">
               {invoice.status === 'CANCELLED'
-                ? 'Document annulé'
-                : 'Document final'}
+                ? tr(lang, 'Document annulé', 'Cancelled document', 'وثيقة ملغاة')
+                : tr(lang, 'Document final', 'Final document', 'وثيقة نهائية')}
             </span>
             <strong>{invoice.number}</strong>
           </div>
@@ -66,10 +67,10 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
               disabled={savingPdf}
             >
               <FileDown size={17} />
-              {savingPdf ? 'PDF…' : 'Enregistrer PDF'}
+              {savingPdf ? 'PDF…' : tr(lang, 'Enregistrer PDF', 'Save PDF', 'حفظ PDF')}
             </button>
             <button className="secondary-button" type="button" onClick={() => window.print()}>
-              <Printer size={17} />Imprimer
+              <Printer size={17} />{tr(lang, 'Imprimer', 'Print', 'طباعة')}
             </button>
             <button className="icon-button" type="button" onClick={onClose}>
               <X size={18} />
@@ -80,7 +81,31 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
         {pdfError && (
           <div className="inline-alert error invoice-preview-error">
             {pdfError}
-            <button type="button" onClick={() => setPdfError('')}>Fermer</button>
+            <button type="button" onClick={() => setPdfError('')}>{tr(lang, 'Fermer', 'Close', 'إغلاق')}</button>
+          </div>
+        )}
+
+        {invoice.returns.length > 0 && (
+          <div className="invoice-returns-summary">
+            <div>
+              <strong>
+                {invoice.returnStatus === 'FULL'
+                  ? tr(lang, 'Facture entièrement retournée', 'Invoice fully returned', 'تم إرجاع كامل الفاتورة')
+                  : tr(lang, 'Retour partiel enregistré', 'Partial return recorded', 'تم تسجيل إرجاع جزئي')}
+              </strong>
+              <span>
+                {tr(lang, 'Retourné', 'Returned', 'مرتجع')}: {formatTnd(invoice.returnedTtcMillimes, locale)} · {tr(lang, 'Net', 'Net', 'الصافي')}: {formatTnd(invoice.netTtcMillimes, locale)}
+              </span>
+            </div>
+            <div className="invoice-return-list">
+              {invoice.returns.map((item) => (
+                <div key={item.id}>
+                  <strong>{item.number}</strong>
+                  <span>{item.lines.map((line) => `${line.quantity} × ${line.reference}`).join(', ')}</span>
+                  <small>{item.reason}</small>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -94,7 +119,7 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
           >
             <header className="paper-header">
               <div className="paper-brand">
-                <div className="paper-mark">BM</div>
+                <BrandLogo className="paper-logo" />
                 <div>
                   <strong>{invoice.business.companyName.toUpperCase()}</strong>
                   <span>{invoice.business.activity.toUpperCase()}</span>
@@ -107,8 +132,8 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
               </div>
               <div className="paper-title">
                 <span>FACTURE</span>
-                <strong>{invoice.number}</strong>
-                <small>{finalizedAt}</small>
+                <strong>N° {invoice.number}</strong>
+                <small>Date : {finalizedAt}</small>
               </div>
             </header>
 
@@ -128,6 +153,9 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
               <div>
                 <span className="paper-label">CLIENT</span>
                 <strong>{invoice.customerName}</strong>
+                {invoice.customerPhone && (
+                  <small>Tél: {invoice.customerPhone}</small>
+                )}
                 {invoice.customerAddress && <small>{invoice.customerAddress}</small>}
                 {invoice.customerTaxId && (
                   <small>Identifiant fiscal: {invoice.customerTaxId}</small>
@@ -151,9 +179,9 @@ export function FinalizedInvoicePreview({ invoice, lang, onClose }: {
                   <th>Réf.</th>
                   <th>Désignation</th>
                   <th className="number">Qté</th>
-                  <th className="number">P.U. client HT</th>
-                  <th className="number">Remise</th>
-                  <th className="number">Montant HT</th>
+                  <th className="number">Prix unit. HT</th>
+                  <th className="number">Remise/u</th>
+                  <th className="number">Total HT</th>
                 </tr>
               </thead>
               <tbody>

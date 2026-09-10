@@ -3,13 +3,14 @@ import { adjustStock, createPart, listParts, listStockMovements, setPartActive, 
 import { createClient, listClients, updateClient } from '../repositories/clients'
 import { createSupplier, listSuppliers, updateSupplier } from '../repositories/suppliers'
 import { getDashboardOverview } from '../services/dashboard'
-import { cancelInvoice, deleteInvoiceDraft, finalizeInvoice, getInvoice, getInvoiceDraft, listInvoiceDrafts, listInvoices, listInvoicesByClient, saveInvoiceDraft } from '../services/invoices'
-import { createBackup, restoreBackup } from '../services/backup'
+import { cancelInvoice, deleteInvoiceDraft, finalizeInvoice, getInvoice, getInvoiceDraft, listInvoiceDrafts, listInvoices, listInvoicesByClient, returnInvoiceItems, saveInvoiceDraft } from '../services/invoices'
+import { createBackup, getAutomaticBackupStatus, restoreBackup } from '../services/backup'
 import { getBusinessSettings, updateBusinessSettings } from '../services/settings'
 import { exportPartsCsv } from '../services/exports'
 import { listAuditEntries } from '../services/audit'
 import { saveCurrentInvoicePdf } from '../services/pdf'
-import type { AdjustStockInput, BusinessSettings, CreateClientInput, CreatePartInput, CreateSupplierInput, FinalizeInvoiceInput, UpdateClientInput, UpdatePartInput, UpdateSupplierInput } from '../../shared/contracts'
+import { getSalesReport } from '../services/sales'
+import type { AdjustStockInput, BusinessSettings, CreateClientInput, CreatePartInput, CreateSupplierInput, FinalizeInvoiceInput, ReturnInvoiceInput, SalesReportRange, UpdateClientInput, UpdatePartInput, UpdateSupplierInput } from '../../shared/contracts'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('parts:list', (_event, query?: string, includeArchived?: boolean) =>
@@ -58,9 +59,17 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('invoices:cancel', (_event, id: number, reason: string) =>
     cancelInvoice(id, reason)
   )
+  ipcMain.handle('invoices:return-items', (_event, input: ReturnInvoiceInput) =>
+    returnInvoiceItems(input)
+  )
 
   ipcMain.handle('backup:create', () => createBackup())
   ipcMain.handle('backup:restore', () => restoreBackup())
+  ipcMain.handle('backup:automatic-status', () => getAutomaticBackupStatus())
+
+  ipcMain.handle('reports:sales', (_event, range: SalesReportRange) =>
+    getSalesReport(range)
+  )
 
   ipcMain.handle('settings:business:get', () => getBusinessSettings())
   ipcMain.handle('settings:business:update', (_event, settings: BusinessSettings) =>

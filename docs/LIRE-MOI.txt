@@ -1,55 +1,60 @@
 BEN MAHMOUD STOCK — GUIDE RAPIDE
 
-OUVRIR L'APPLICATION
-- Double-cliquez sur "Ben-Mahmoud-Stock-Portable.exe".
-- Aucun navigateur, serveur, Node.js ou terminal n'est nécessaire.
-- La base de données est créée automatiquement au premier lancement.
-- Les données sont conservées sur le PC du magasin, pas dans l'EXE.
+POUR COMMENCER
+1. Copiez tout le dossier "BEN MAHMOUD STOCK - RAPIDE" sur le Bureau.
+2. Ouvrez le dossier.
+3. Double-cliquez sur "OUVRIR BEN MAHMOUD STOCK.exe".
+4. Gardez toujours tout le dossier ensemble.
 
-PREMIÈRE CONFIGURATION
-Ouvrez "Paramètres" et renseignez/vérifiez:
-- nom et activité de l'établissement;
-- adresse et téléphones;
-- matricule fiscal;
-- TVA par défaut;
-- préfixe et format des numéros de facture.
+AVANT LA PREMIÈRE VENTE
+- Ouvrez "Paramètres" et vérifiez le nom du magasin, l'adresse, les téléphones,
+  le matricule fiscal, la TVA et la numérotation des factures.
+- Une liste de départ de clients, fournisseurs et pièces est déjà présente.
+- Vérifiez les références, les prix et les quantités avec le stock réel du magasin.
+- Corrigez ou complétez les fiches avant de commencer la facturation.
 
-SAISIR LE STOCK
-1. Ajoutez d'abord les fournisseurs utiles dans "Fournisseurs".
-2. Ouvrez "Pièces & stock" puis "Ajouter une pièce".
-3. Pour chaque pièce, saisissez:
-   - référence;
-   - désignation;
-   - référence OEM si disponible;
-   - compatibilité véhicule;
-   - catégorie;
-   - fournisseur;
-   - prix d'achat;
-   - prix de vente;
-   - quantité actuelle;
-   - seuil de stock faible;
-   - emplacement/rayon.
-4. Pour les réapprovisionnements suivants, utilisez "Ajuster le stock" au lieu de modifier la quantité manuellement.
+FAIRE UNE FACTURE
+1. Ouvrez "Factures" puis "Nouvelle facture".
+2. Choisissez un client déjà enregistré ou saisissez son nom et son téléphone.
+3. Ajoutez les pièces vendues et leurs quantités.
+4. Vérifiez les prix, la remise éventuelle et le total.
+5. Enregistrez un brouillon si la vente n'est pas terminée.
+6. Validez la facture, puis imprimez-la ou enregistrez-la en PDF.
 
 CLIENTS
-- Les clients réguliers peuvent être enregistrés dans "Clients".
-- Pour une vente simple, "Client comptoir" peut être utilisé sans créer de fiche client.
+- Un nouveau client est ajouté automatiquement après la validation de sa
+  première facture.
+- Si le même nom et le même téléphone sont saisis une autre fois, la facture
+  est rattachée à sa fiche existante.
+- Si une fiche n'a pas encore de téléphone, celui saisi sur la facture la complète.
+- Pour une vente sans fiche client, laissez "Client comptoir".
 
-FACTURES
-- Ajoutez les pièces depuis le stock réel.
-- Le prix client peut être négocié avant validation.
-- Le total final peut aussi être arrondi commercialement.
-- Un brouillon peut être enregistré puis rouvert plus tard.
-- Le numéro définitif est attribué uniquement lors de la validation.
-- Une facture peut être imprimée ou enregistrée en PDF.
+STOCK
+- Consultez rapidement les quantités disponibles et les articles presque épuisés.
+- Utilisez "Ajuster le stock" après une livraison ou une correction d'inventaire.
+- Le stock des pièces vendues diminue dès que la facture est validée.
+- Renseignez l'emplacement de chaque pièce pour la retrouver plus facilement.
 
-SAUVEGARDE
-Dans "Paramètres > Sauvegarde des données":
-- créez régulièrement une sauvegarde;
-- enregistrez une copie sur une clé USB ou un disque externe;
-- la restauration vérifie le fichier avant de remplacer les données actives.
+RETOUR OU ÉCHANGE CLIENT
+1. Ouvrez "Factures" et retrouvez la facture d'origine.
+2. Cliquez sur "Retour / échange".
+3. Indiquez la quantité rapportée et la raison du retour.
+4. Validez: la quantité revient automatiquement dans le stock.
+5. Pour un échange, cochez "Préparer un échange". Une nouvelle facture s'ouvre
+   avec le même client pour choisir la pièce de remplacement.
+- Un retour partiel ou complet reste visible dans l'historique de la facture.
+- Utilisez "Annuler" seulement pour corriger une vente saisie par erreur.
 
-MISE À JOUR
-- Fermez l'application.
-- Remplacez uniquement l'ancien EXE par le nouvel EXE.
-- La base de données du magasin n'est pas stockée dans l'EXE, donc une mise à jour normale ne supprime pas le stock ni l'historique.
+VENTES
+- Ouvrez "Ventes" pour voir le chiffre net après retours, les factures du jour,
+  de la semaine, du mois ou de l'année et les pièces les plus vendues.
+
+SAUVEGARDES
+- Ouvrez "Paramètres", puis "Sauvegarde des données".
+- Une copie de sécurité est créée automatiquement chaque jour à l'ouverture.
+- Créez aussi une copie manuelle sur une clé USB au moins une fois par semaine.
+- Gardez aussi une copie sur une autre clé USB.
+- Pour récupérer une ancienne copie, utilisez le bouton de restauration prévu.
+
+Vous trouverez la liste complète des possibilités dans
+"FONCTIONS DE L'APPLICATION.txt".

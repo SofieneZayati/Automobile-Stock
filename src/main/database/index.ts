@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
-import { mkdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
 import { migrations } from './migrations'
 
 let database: DatabaseSync | null = null
@@ -21,6 +21,16 @@ export function initializeDatabase(): DatabaseSync {
   const dataDir = app.getPath('userData')
   mkdirSync(dataDir, { recursive: true })
   const databasePath = getDatabasePath()
+
+  if (!existsSync(databasePath)) {
+    const seedPath = app.isPackaged
+      ? join(process.resourcesPath, 'initial-database.sqlite3')
+      : join(app.getAppPath(), 'resources', 'initial-database.sqlite3')
+
+    if (existsSync(seedPath)) {
+      copyFileSync(seedPath, databasePath)
+    }
+  }
 
   database = new DatabaseSync(databasePath)
   database.exec('PRAGMA foreign_keys = ON;')

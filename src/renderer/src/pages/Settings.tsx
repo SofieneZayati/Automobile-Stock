@@ -10,8 +10,12 @@ import {
   Save,
   ShieldCheck
 } from 'lucide-react'
-import type { AuditEntry, BusinessSettings } from '../../../shared/contracts'
-import { Language } from '../i18n'
+import type {
+  AuditEntry,
+  AutomaticBackupStatus,
+  BusinessSettings
+} from '../../../shared/contracts'
+import { Language, t, tr } from '../i18n'
 
 export function Settings({
   lang,
@@ -24,6 +28,8 @@ export function Settings({
   const [business, setBusiness] = useState<BusinessSettings | null>(null)
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
   const [auditLoading, setAuditLoading] = useState(true)
+  const [automaticBackup, setAutomaticBackup] =
+    useState<AutomaticBackupStatus | null>(null)
   const [message, setMessage] = useState<{
     type: 'success' | 'error'
     text: string
@@ -42,7 +48,7 @@ export function Settings({
             type: 'error',
             text: cause instanceof Error
               ? cause.message
-              : 'Impossible de charger les paramètres.'
+              : tr(lang, 'Impossible de charger les paramètres.', 'Unable to load settings.', 'تعذر تحميل الإعدادات.')
           })
         }
       })
@@ -65,6 +71,14 @@ export function Settings({
 
   useEffect(() => {
     void loadAudit()
+  }, [])
+
+  useEffect(() => {
+    void window.desktop.backup.automaticStatus()
+      .then(setAutomaticBackup)
+      .catch(() => {
+        // Manual backup and restore remain available if status cannot be read.
+      })
   }, [])
 
   const invoiceExample = useMemo(() => {
@@ -94,7 +108,7 @@ export function Settings({
       onBusinessChange?.(saved)
       setMessage({
         type: 'success',
-        text: 'Paramètres enregistrés. Les prochaines factures utiliseront ces informations.'
+        text: tr(lang, 'Paramètres enregistrés. Les prochaines factures utiliseront ces informations.', 'Settings saved. New invoices will use this information.', 'تم حفظ الإعدادات وستستخدمها الفواتير الجديدة.')
       })
       await loadAudit()
     } catch (cause) {
@@ -102,7 +116,7 @@ export function Settings({
         type: 'error',
         text: cause instanceof Error
           ? cause.message
-          : 'Impossible d’enregistrer les paramètres.'
+          : tr(lang, 'Impossible d’enregistrer les paramètres.', 'Unable to save settings.', 'تعذر حفظ الإعدادات.')
       })
     } finally {
       setBusy(null)
@@ -117,13 +131,13 @@ export function Settings({
       if (result) {
         setMessage({
           type: 'success',
-          text: `Sauvegarde créée: ${result.path}`
+          text: tr(lang, `Sauvegarde créée: ${result.path}`, `Backup created: ${result.path}`, `تم إنشاء النسخة الاحتياطية: ${result.path}`)
         })
       }
     } catch (cause) {
       setMessage({
         type: 'error',
-        text: cause instanceof Error ? cause.message : 'La sauvegarde a échoué.'
+        text: cause instanceof Error ? cause.message : tr(lang, 'La sauvegarde a échoué.', 'Backup failed.', 'فشل إنشاء النسخة الاحتياطية.')
       })
     } finally {
       setBusy(null)
@@ -132,8 +146,7 @@ export function Settings({
 
   async function restoreBackup(): Promise<void> {
     const confirmed = window.confirm(
-      'Restaurer une sauvegarde remplacera les données actuellement enregistrées. ' +
-      'Créez d’abord une sauvegarde de sécurité si nécessaire. Continuer ?'
+      tr(lang, 'Restaurer une sauvegarde remplacera les données actuellement enregistrées. Créez d’abord une sauvegarde de sécurité si nécessaire. Continuer ?', 'Restoring a backup will replace the currently saved data. Create a safety backup first if needed. Continue?', 'ستؤدي استعادة نسخة احتياطية إلى استبدال البيانات الحالية. أنشئ نسخة أمان أولاً عند الحاجة. هل تريد المتابعة؟')
     )
     if (!confirmed) return
 
@@ -147,14 +160,14 @@ export function Settings({
         onBusinessChange?.(refreshed)
         setMessage({
           type: 'success',
-          text: `Sauvegarde restaurée et vérifiée (${result.integrity}). Une copie de sécurité des données précédentes a été conservée${result.safetyBackupPath ? `: ${result.safetyBackupPath}` : '.'}`
+          text: tr(lang, `Sauvegarde restaurée et vérifiée. Une copie de sécurité des données précédentes a été conservée${result.safetyBackupPath ? `: ${result.safetyBackupPath}` : '.'}`, `Backup restored and verified. A safety copy of the previous data was kept${result.safetyBackupPath ? `: ${result.safetyBackupPath}` : '.'}`, `تمت استعادة النسخة والتحقق منها. تم الاحتفاظ بنسخة أمان من البيانات السابقة${result.safetyBackupPath ? `: ${result.safetyBackupPath}` : '.'}`)
         })
         await loadAudit()
       }
     } catch (cause) {
       setMessage({
         type: 'error',
-        text: cause instanceof Error ? cause.message : 'La restauration a échoué.'
+        text: cause instanceof Error ? cause.message : tr(lang, 'La restauration a échoué.', 'Restore failed.', 'فشلت الاستعادة.')
       })
     } finally {
       setBusy(null)
@@ -165,11 +178,9 @@ export function Settings({
     <div className="page settings-page">
       <section className="page-heading">
         <div>
-          <span className="eyebrow">Configuration & sécurité</span>
-          <h1>Paramètres</h1>
-          <p>
-            Identité de l’établissement, règles de facturation, langues et protection des données.
-          </p>
+          <span className="eyebrow">{tr(lang, 'Configuration & sécurité', 'Configuration & safety', 'الإعداد والأمان')}</span>
+          <h1>{t(lang, 'settings')}</h1>
+          <p>{tr(lang, 'Identité de l’établissement, règles de facturation, langues et protection des données.', 'Shop identity, invoice rules, languages and data protection.', 'هوية المحل وقواعد الفوترة واللغات وحماية البيانات.')}</p>
         </div>
       </section>
 
@@ -177,7 +188,7 @@ export function Settings({
         <div className={`inline-alert ${message.type}`}>
           {message.type === 'success' && <CheckCircle2 size={18} />}
           {message.text}
-          <button type="button" onClick={() => setMessage(null)}>Fermer</button>
+          <button type="button" onClick={() => setMessage(null)}>{tr(lang, 'Fermer', 'Close', 'إغلاق')}</button>
         </div>
       )}
 
@@ -186,18 +197,18 @@ export function Settings({
           <div className="settings-card-heading">
             <span className="settings-icon"><ShieldCheck size={20} /></span>
             <div>
-              <h2>Établissement & facture</h2>
-              <p>Ces informations apparaissent sur les nouvelles factures et sont sauvegardées.</p>
+              <h2>{tr(lang, 'Établissement & facture', 'Shop & invoice', 'المحل والفاتورة')}</h2>
+              <p>{tr(lang, 'Ces informations apparaissent sur les nouvelles factures et sont sauvegardées.', 'This information appears on new invoices and is saved.', 'تظهر هذه المعلومات في الفواتير الجديدة ويتم حفظها.')}</p>
             </div>
           </div>
 
           {!business ? (
-            <div className="panel-empty">Chargement des paramètres…</div>
+            <div className="panel-empty">{tr(lang, 'Chargement des paramètres…', 'Loading settings…', 'جار تحميل الإعدادات…')}</div>
           ) : (
             <>
               <div className="business-settings-form">
                 <label className="field">
-                  <span>Nom de l’établissement</span>
+                  <span>{tr(lang, 'Nom de l’établissement', 'Shop name', 'اسم المحل')}</span>
                   <input
                     value={business.companyName}
                     onChange={(event) => patchBusiness('companyName', event.target.value)}
@@ -205,7 +216,7 @@ export function Settings({
                 </label>
 
                 <label className="field">
-                  <span>Activité</span>
+                  <span>{tr(lang, 'Activité', 'Business activity', 'النشاط')}</span>
                   <input
                     value={business.activity}
                     onChange={(event) => patchBusiness('activity', event.target.value)}
@@ -213,7 +224,7 @@ export function Settings({
                 </label>
 
                 <label className="field">
-                  <span>Nom en arabe</span>
+                  <span>{tr(lang, 'Nom en arabe', 'Name in Arabic', 'الاسم بالعربية')}</span>
                   <input
                     dir="rtl"
                     value={business.companyNameAr}
@@ -222,7 +233,7 @@ export function Settings({
                 </label>
 
                 <label className="field">
-                  <span>Activité en arabe</span>
+                  <span>{tr(lang, 'Activité en arabe', 'Activity in Arabic', 'النشاط بالعربية')}</span>
                   <input
                     dir="rtl"
                     value={business.activityAr}
@@ -231,7 +242,7 @@ export function Settings({
                 </label>
 
                 <label className="field full">
-                  <span>Adresse</span>
+                  <span>{tr(lang, 'Adresse', 'Address', 'العنوان')}</span>
                   <input
                     value={business.address}
                     onChange={(event) => patchBusiness('address', event.target.value)}
@@ -239,7 +250,7 @@ export function Settings({
                 </label>
 
                 <label className="field">
-                  <span>Téléphone 1</span>
+                  <span>{tr(lang, 'Téléphone 1', 'Phone 1', 'الهاتف 1')}</span>
                   <input
                     value={business.phone1}
                     onChange={(event) => patchBusiness('phone1', event.target.value)}
@@ -247,7 +258,7 @@ export function Settings({
                 </label>
 
                 <label className="field">
-                  <span>Téléphone 2</span>
+                  <span>{tr(lang, 'Téléphone 2', 'Phone 2', 'الهاتف 2')}</span>
                   <input
                     value={business.phone2}
                     onChange={(event) => patchBusiness('phone2', event.target.value)}
@@ -255,7 +266,7 @@ export function Settings({
                 </label>
 
                 <label className="field">
-                  <span>Matricule fiscal</span>
+                  <span>{tr(lang, 'Matricule fiscal', 'Tax ID', 'المعرّف الجبائي')}</span>
                   <input
                     value={business.taxId}
                     placeholder="Ex. 1234567/A/M/000"
@@ -264,7 +275,7 @@ export function Settings({
                 </label>
 
                 <label className="field">
-                  <span>TVA par défaut (%)</span>
+                  <span>{tr(lang, 'TVA par défaut (%)', 'Default VAT (%)', 'الأداء الافتراضي (%)')}</span>
                   <input
                     type="number"
                     min="0"
@@ -278,7 +289,7 @@ export function Settings({
                 </label>
 
                 <label className="field">
-                  <span>Préfixe facture</span>
+                  <span>{tr(lang, 'Préfixe facture', 'Invoice prefix', 'بادئة الفاتورة')}</span>
                   <input
                     value={business.invoicePrefix}
                     maxLength={8}
@@ -287,7 +298,7 @@ export function Settings({
                 </label>
 
                 <label className="field">
-                  <span>Nombre de chiffres</span>
+                  <span>{tr(lang, 'Nombre de chiffres', 'Number of digits', 'عدد الأرقام')}</span>
                   <input
                     type="number"
                     min="3"
@@ -300,7 +311,7 @@ export function Settings({
                 </label>
 
                 <label className="field full">
-                  <span>Client par défaut</span>
+                  <span>{tr(lang, 'Client par défaut', 'Default customer', 'الحريف الافتراضي')}</span>
                   <input
                     value={business.defaultCustomerName}
                     onChange={(event) =>
@@ -312,22 +323,22 @@ export function Settings({
 
               <div className="invoice-settings-preview">
                 <div>
-                  <span>Exemple de numéro</span>
+                  <span>{tr(lang, 'Exemple de numéro', 'Number example', 'مثال الرقم')}</span>
                   <strong>{invoiceExample}</strong>
                 </div>
                 <div>
-                  <span>TVA actuelle</span>
+                  <span>{tr(lang, 'TVA actuelle', 'Current VAT', 'الأداء الحالي')}</span>
                   <strong>{business.defaultTaxPercent}%</strong>
                 </div>
                 <div>
-                  <span>Matricule fiscal</span>
-                  <strong>{business.taxId || 'Non renseigné'}</strong>
+                  <span>{tr(lang, 'Matricule fiscal', 'Tax ID', 'المعرّف الجبائي')}</span>
+                  <strong>{business.taxId || tr(lang, 'Non renseigné', 'Not entered', 'غير مسجل')}</strong>
                 </div>
               </div>
 
               <div className="settings-save-row">
                 <div className="settings-note fiscal-warning">
-                  Vérifiez le matricule fiscal, la TVA et la numérotation avant d’émettre les premières factures réelles.
+                  {tr(lang, 'Vérifiez le matricule fiscal, la TVA et la numérotation avant d’émettre les premières factures réelles.', 'Check the tax ID, VAT and numbering before issuing the first real invoices.', 'تحقق من المعرّف الجبائي والأداء والترقيم قبل إصدار أول فاتورة فعلية.')}
                 </div>
                 <button
                   className="primary-button"
@@ -336,7 +347,7 @@ export function Settings({
                   onClick={() => void saveBusiness()}
                 >
                   <Save size={17} />
-                  {busy === 'save' ? 'Enregistrement…' : 'Enregistrer'}
+                  {busy === 'save' ? tr(lang, 'Enregistrement…', 'Saving…', 'جار الحفظ…') : tr(lang, 'Enregistrer', 'Save', 'حفظ')}
                 </button>
               </div>
             </>
@@ -347,15 +358,15 @@ export function Settings({
           <div className="settings-card-heading">
             <span className="settings-icon"><Languages size={20} /></span>
             <div>
-              <h2>Langues</h2>
-              <p>Le français reste la langue principale de travail.</p>
+              <h2>{tr(lang, 'Langues', 'Languages', 'اللغات')}</h2>
+              <p>{tr(lang, 'Le français reste la langue principale de travail.', 'French remains the main working language.', 'تبقى الفرنسية لغة العمل الأساسية.')}</p>
             </div>
           </div>
 
           <div className="language-status-list">
             <div className={lang === 'fr' ? 'active' : ''}>
               <strong>FR</strong>
-              <span>Français · principal</span>
+              <span>{tr(lang, 'Français · principal', 'French · main', 'الفرنسية · الرئيسية')}</span>
             </div>
             <div className={lang === 'en' ? 'active' : ''}>
               <strong>EN</strong>
@@ -368,7 +379,7 @@ export function Settings({
           </div>
 
           <div className="settings-note">
-            Changez la langue avec le sélecteur FR / EN / AR dans la barre supérieure.
+            {tr(lang, 'Changez la langue avec le sélecteur FR / EN / AR dans la barre supérieure.', 'Change language using FR / EN / AR in the top bar.', 'غيّر اللغة باستعمال FR / EN / AR في الشريط العلوي.')}
           </div>
         </section>
 
@@ -376,10 +387,24 @@ export function Settings({
           <div className="settings-card-heading">
             <span className="settings-icon"><DatabaseBackup size={20} /></span>
             <div>
-              <h2>Sauvegarde des données</h2>
-              <p>
-                Copiez l’intégralité du stock, des factures et des paramètres dans un fichier SQLite vérifiable.
-              </p>
+              <h2>{tr(lang, 'Sauvegarde des données', 'Data backup', 'النسخ الاحتياطي')}</h2>
+              <p>{tr(lang, 'Protégez l’intégralité du stock, des factures et des paramètres dans une copie de sécurité.', 'Protect all stock, invoices and settings in a safety copy.', 'احمِ كامل المخزون والفواتير والإعدادات في نسخة أمان.')}</p>
+            </div>
+          </div>
+
+          <div className="automatic-backup-card">
+            <span className="automatic-backup-icon"><ShieldCheck size={19} /></span>
+            <div>
+              <strong>{tr(lang, 'Sauvegarde automatique quotidienne activée', 'Daily automatic backup is active', 'النسخ الاحتياطي اليومي مفعّل')}</strong>
+              <span>
+                {automaticBackup?.latestAt
+                  ? tr(lang, `Dernière copie: ${formatBackupDate(automaticBackup.latestAt, lang)}`, `Latest copy: ${formatBackupDate(automaticBackup.latestAt, lang)}`, `آخر نسخة: ${formatBackupDate(automaticBackup.latestAt, lang)}`)
+                  : tr(lang, 'La première copie sera créée automatiquement après l’ouverture de l’application.', 'The first copy will be created automatically after the app opens.', 'سيتم إنشاء النسخة الأولى تلقائيًا بعد فتح التطبيق.')}
+              </span>
+              <small>
+                {automaticBackup?.folder
+                  ?? 'Documents > Ben Mahmoud Stock > Sauvegardes automatiques'}
+              </small>
             </div>
           </div>
 
@@ -392,8 +417,8 @@ export function Settings({
             >
               <span><FileArchive size={20} /></span>
               <div>
-                <strong>{busy === 'backup' ? 'Création…' : 'Créer une sauvegarde'}</strong>
-                <small>Choisissez le PC, une clé USB ou un disque externe.</small>
+                <strong>{busy === 'backup' ? tr(lang, 'Création…', 'Creating…', 'جار الإنشاء…') : tr(lang, 'Créer une sauvegarde', 'Create a backup', 'إنشاء نسخة احتياطية')}</strong>
+                <small>{tr(lang, 'Choisissez le PC, une clé USB ou un disque externe.', 'Choose the PC, a USB drive or an external disk.', 'اختر الحاسوب أو مفتاح USB أو قرصًا خارجيًا.')}</small>
               </div>
             </button>
 
@@ -405,8 +430,8 @@ export function Settings({
             >
               <span><RotateCcw size={20} /></span>
               <div>
-                <strong>{busy === 'restore' ? 'Restauration…' : 'Restaurer une sauvegarde'}</strong>
-                <small>Le fichier est contrôlé avant de remplacer les données actives.</small>
+                <strong>{busy === 'restore' ? tr(lang, 'Restauration…', 'Restoring…', 'جار الاستعادة…') : tr(lang, 'Restaurer une sauvegarde', 'Restore a backup', 'استعادة نسخة احتياطية')}</strong>
+                <small>{tr(lang, 'La copie est contrôlée avant de remplacer les données actives.', 'The copy is checked before replacing active data.', 'يتم فحص النسخة قبل استبدال البيانات الحالية.')}</small>
               </div>
             </button>
           </div>
@@ -414,7 +439,7 @@ export function Settings({
           <div className="backup-safety">
             <ShieldCheck size={16} />
             <span>
-              La base active reste sur l’ordinateur. La clé USB sert à livrer l’application et à transporter des sauvegardes, ce qui évite de perdre les données si la clé est retirée.
+              {tr(lang, 'Les données actives restent sur l’ordinateur. La clé USB sert à livrer l’application et à transporter des sauvegardes.', 'Active data stays on the computer. The USB drive is used to deliver the app and carry backups.', 'تبقى البيانات الحالية على الحاسوب. يُستخدم مفتاح USB لنقل التطبيق والنسخ الاحتياطية.')}
             </span>
           </div>
         </section>
@@ -423,16 +448,13 @@ export function Settings({
           <div className="settings-card-heading audit-heading">
             <span className="settings-icon"><History size={20} /></span>
             <div>
-              <h2>Journal d’activité</h2>
-              <p>
-                Dernières opérations importantes enregistrées localement:
-                stock, pièces, clients, factures et paramètres.
-              </p>
+              <h2>{tr(lang, 'Journal d’activité', 'Activity log', 'سجل النشاط')}</h2>
+              <p>{tr(lang, 'Dernières opérations importantes: stock, pièces, clients, factures et paramètres.', 'Latest important operations: stock, parts, customers, invoices and settings.', 'آخر العمليات المهمة: المخزون والقطع والحرفاء والفواتير والإعدادات.')}</p>
             </div>
             <button
               className="icon-button"
               type="button"
-              title="Actualiser le journal"
+              title={tr(lang, 'Actualiser le journal', 'Refresh activity log', 'تحديث سجل النشاط')}
               onClick={() => void loadAudit()}
               disabled={auditLoading}
             >
@@ -441,16 +463,16 @@ export function Settings({
           </div>
 
           {auditLoading && auditEntries.length === 0 ? (
-            <div className="panel-empty">Chargement du journal…</div>
+            <div className="panel-empty">{tr(lang, 'Chargement du journal…', 'Loading activity…', 'جار تحميل السجل…')}</div>
           ) : auditEntries.length === 0 ? (
-            <div className="panel-empty">Aucune activité enregistrée.</div>
+            <div className="panel-empty">{tr(lang, 'Aucune activité enregistrée.', 'No activity recorded.', 'لا يوجد نشاط مسجل.')}</div>
           ) : (
             <div className="audit-list">
               {auditEntries.map((entry) => (
                 <div className="audit-row" key={entry.id}>
                   <span className="audit-dot" />
                   <div>
-                    <strong>{auditLabel(entry)}</strong>
+                    <strong>{auditLabel(entry, lang)}</strong>
                     <small>{auditDetails(entry)}</small>
                   </div>
                   <time>{formatAuditDate(entry.createdAt, lang)}</time>
@@ -466,18 +488,19 @@ export function Settings({
 }
 
 
-function auditLabel(entry: AuditEntry): string {
+function auditLabel(entry: AuditEntry, lang: Language): string {
   const labels: Record<string, string> = {
-    CREATE: 'Création',
-    UPDATE: 'Modification',
-    ARCHIVE: 'Archivage',
-    RESTORE: 'Restauration',
-    STOCK_ADJUST: 'Mouvement de stock',
-    FINALIZE: 'Facture finalisée',
-    SAVE_DRAFT: 'Brouillon enregistré',
-    DELETE_DRAFT: 'Brouillon supprimé',
-    CANCEL: 'Facture annulée',
-    UPDATE_BUSINESS: 'Paramètres établissement modifiés'
+    CREATE: tr(lang, 'Création', 'Created', 'إنشاء'),
+    UPDATE: tr(lang, 'Modification', 'Updated', 'تعديل'),
+    ARCHIVE: tr(lang, 'Archivage', 'Archived', 'أرشفة'),
+    RESTORE: tr(lang, 'Restauration', 'Restored', 'استعادة'),
+    STOCK_ADJUST: tr(lang, 'Mouvement de stock', 'Stock movement', 'حركة مخزون'),
+    FINALIZE: tr(lang, 'Facture finalisée', 'Invoice finalized', 'تأكيد فاتورة'),
+    SAVE_DRAFT: tr(lang, 'Brouillon enregistré', 'Draft saved', 'حفظ مسودة'),
+    DELETE_DRAFT: tr(lang, 'Brouillon supprimé', 'Draft deleted', 'حذف مسودة'),
+    CANCEL: tr(lang, 'Facture annulée', 'Invoice cancelled', 'إلغاء فاتورة'),
+    RETURN: tr(lang, 'Retour client', 'Customer return', 'إرجاع حريف'),
+    UPDATE_BUSINESS: tr(lang, 'Paramètres établissement modifiés', 'Shop settings updated', 'تعديل إعدادات المحل')
   }
 
   const entityLabels: Record<string, string> = {
@@ -527,6 +550,15 @@ function formatAuditDate(value: string, lang: Language): string {
 
   return parsed.toLocaleString(locale, {
     dateStyle: 'short',
+    timeStyle: 'short'
+  })
+}
+
+function formatBackupDate(value: string, lang: Language): string {
+  const date = new Date(value)
+  const locale = lang === 'ar' ? 'ar-TN' : lang === 'en' ? 'en-TN' : 'fr-TN'
+  return date.toLocaleString(locale, {
+    dateStyle: 'medium',
     timeStyle: 'short'
   })
 }

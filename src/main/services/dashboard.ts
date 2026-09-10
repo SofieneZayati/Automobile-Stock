@@ -20,11 +20,22 @@ export function getDashboardOverview(): DashboardOverview {
 
   const sales = db.prepare(`
     SELECT
-      COUNT(*) AS invoice_count,
-      COALESCE(SUM(total_ttc_millimes), 0) AS sales_total
-    FROM invoices
-    WHERE status = 'FINALIZED'
-      AND date(finalized_at, 'localtime') = date('now', 'localtime')
+      (
+        SELECT COUNT(*)
+        FROM invoices
+        WHERE status = 'FINALIZED'
+          AND date(finalized_at, 'localtime') = date('now', 'localtime')
+      ) AS invoice_count,
+      (
+        SELECT COALESCE(SUM(total_ttc_millimes), 0)
+        FROM invoices
+        WHERE status = 'FINALIZED'
+          AND date(finalized_at, 'localtime') = date('now', 'localtime')
+      ) - (
+        SELECT COALESCE(SUM(refund_ttc_millimes), 0)
+        FROM invoice_returns
+        WHERE date(created_at, 'localtime') = date('now', 'localtime')
+      ) AS sales_total
   `).get() as { invoice_count: number; sales_total: number }
 
   const invoiceRows = db.prepare(`

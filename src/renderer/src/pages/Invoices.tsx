@@ -21,8 +21,9 @@ import type {
   InvoiceDraftListItem,
   Part
 } from '../../../shared/contracts'
-import { Language, localeFor, t } from '../i18n'
+import { Language, localeFor, t, tr } from '../i18n'
 import { formatTnd, percentageAmount } from '../lib/money'
+import { BrandLogo } from '../components/BrandLogo'
 
 type DraftLine = {
   id: string
@@ -52,18 +53,30 @@ type DraftCalculation = {
   adjustmentError: string | null
 }
 
+export type InvoiceCustomerPrefill = {
+  key: string
+  customerName: string
+  customerPhone: string | null
+  customerAddress: string | null
+  customerTaxId: string | null
+  sourceInvoiceNumber: string
+}
+
 export function Invoices({
   lang,
-  onDirtyChange
+  onDirtyChange,
+  customerPrefill
 }: {
   lang: Language
   onDirtyChange?: (dirty: boolean) => void
+  customerPrefill?: InvoiceCustomerPrefill | null
 }): JSX.Element {
   const [lines, setLines] = useState<DraftLine[]>([])
   const [customer, setCustomer] = useState(t(lang, 'walkIn'))
   const [showPicker, setShowPicker] = useState(false)
   const [showClientPicker, setShowClientPicker] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [customerPhone, setCustomerPhone] = useState('')
   const [customerAddress, setCustomerAddress] = useState('')
   const [customerTaxId, setCustomerTaxId] = useState('')
   const [notes, setNotes] = useState('')
@@ -83,6 +96,24 @@ export function Invoices({
   const taxPercent = finalized?.business.defaultTaxPercent
     ?? business?.defaultTaxPercent
     ?? 19
+
+  useEffect(() => {
+    if (!customerPrefill) return
+    setLines([])
+    setCustomer(customerPrefill.customerName)
+    setCustomerPhone(customerPrefill.customerPhone ?? '')
+    setCustomerAddress(customerPrefill.customerAddress ?? '')
+    setCustomerTaxId(customerPrefill.customerTaxId ?? '')
+    setSelectedClient(null)
+    setNotes(tr(lang, `Échange suite au retour de la facture ${customerPrefill.sourceInvoiceNumber}`, `Exchange following return from invoice ${customerPrefill.sourceInvoiceNumber}`, `استبدال بعد إرجاع من الفاتورة ${customerPrefill.sourceInvoiceNumber}`))
+    setDraftId(null)
+    setSavedFingerprint('')
+    setDraftNotice(tr(lang, 'Retour enregistré. Ajoutez maintenant la pièce de remplacement.', 'Return recorded. Now add the replacement part.', 'تم تسجيل الإرجاع. أضف الآن القطعة البديلة.'))
+    setFinalized(null)
+    setAdjustmentMode('target')
+    setAdjustmentText('')
+    setError('')
+  }, [customerPrefill])
 
   useEffect(() => {
     let active = true
@@ -133,6 +164,7 @@ export function Invoices({
   const contentFingerprint = useMemo(
     () => invoiceContentFingerprint({
       customer,
+      customerPhone,
       customerAddress,
       customerTaxId,
       notes,
@@ -142,6 +174,7 @@ export function Invoices({
     }),
     [
       customer,
+      customerPhone,
       customerAddress,
       customerTaxId,
       notes,
@@ -230,6 +263,7 @@ export function Invoices({
       ...(includeDraftId && draftId !== null ? { draftId } : {}),
       clientId: selectedClient?.id,
       customerName: customer,
+      customerPhone: (selectedClient?.phone ?? customerPhone) || undefined,
       customerAddress: (selectedClient?.address ?? customerAddress) || undefined,
       customerTaxId: (selectedClient?.taxId ?? customerTaxId) || undefined,
       notes: notes.trim() || undefined,
@@ -302,6 +336,7 @@ export function Invoices({
       setFinalized(null)
       setDraftId(draft.id)
       setCustomer(draft.customerName)
+      setCustomerPhone(draft.customerPhone ?? '')
       setCustomerAddress(draft.customerAddress ?? '')
       setCustomerTaxId(draft.customerTaxId ?? '')
       setNotes(draft.notes ?? '')
@@ -331,6 +366,7 @@ export function Invoices({
       setSavedFingerprint(
         invoiceContentFingerprint({
           customer: draft.customerName,
+          customerPhone: draft.customerPhone ?? '',
           customerAddress: draft.customerAddress ?? '',
           customerTaxId: draft.customerTaxId ?? '',
           notes: draft.notes ?? '',
@@ -455,6 +491,7 @@ export function Invoices({
     setLines([])
     setSelectedClient(null)
     setCustomer(business?.defaultCustomerName ?? t(lang, 'walkIn'))
+    setCustomerPhone('')
     setCustomerAddress('')
     setCustomerTaxId('')
     setNotes('')
@@ -472,6 +509,7 @@ export function Invoices({
         number: finalized.number,
         finalizedAt: finalized.finalizedAt,
         customerName: finalized.customerName,
+        customerPhone: finalized.customerPhone,
         customerAddress: finalized.customerAddress,
         customerTaxId: finalized.customerTaxId,
         notes: finalized.notes,
@@ -499,6 +537,7 @@ export function Invoices({
         number: 'PROVISOIRE',
         finalizedAt: null,
         customerName: customer,
+        customerPhone: (selectedClient?.phone ?? customerPhone) || null,
         customerAddress: (selectedClient?.address ?? customerAddress) || null,
         customerTaxId: (selectedClient?.taxId ?? customerTaxId) || null,
         notes: notes.trim() || null,
@@ -530,12 +569,12 @@ export function Invoices({
     <div className="page invoice-page">
       <section className="page-heading invoice-heading">
         <div>
-          <span className="eyebrow">Facturation · Prix négociables avant validation</span>
-          <h1>{finalized ? `Facture ${finalized.number}` : t(lang, 'invoiceDraft')}</h1>
+          <span className="eyebrow">{tr(lang, 'Facturation · Prix négociables avant validation', 'Invoicing · Prices can be adjusted before finalizing', 'الفوترة · يمكن تعديل الأسعار قبل التأكيد')}</span>
+          <h1>{finalized ? tr(lang, `Facture ${finalized.number}`, `Invoice ${finalized.number}`, `فاتورة ${finalized.number}`) : t(lang, 'invoiceDraft')}</h1>
           <p>
             {finalized
-              ? 'La facture est finalisée et les prix/remises sont maintenant figés.'
-              : 'Modifiez le prix d’une pièce ou arrondissez directement le total avant de valider.'}
+              ? tr(lang, 'La facture est finalisée et les prix/remises sont maintenant figés.', 'The invoice is finalized and prices/discounts are now locked.', 'تم تأكيد الفاتورة وتثبيت الأسعار والخصومات.')
+              : tr(lang, 'Modifiez le prix d’une pièce ou arrondissez directement le total avant de valider.', 'Adjust a part price or round the total before finalizing.', 'عدّل سعر قطعة أو قرّب المجموع قبل التأكيد.')}
           </p>
         </div>
         <div className="heading-actions">
@@ -548,13 +587,13 @@ export function Invoices({
                 disabled={savingPdf}
               >
                 <FileDown size={18} />
-                {savingPdf ? 'PDF…' : 'Enregistrer PDF'}
+                {savingPdf ? 'PDF…' : tr(lang, 'Enregistrer PDF', 'Save PDF', 'حفظ PDF')}
               </button>
               <button className="secondary-button" type="button" onClick={() => window.print()}>
-                <Printer size={18} />Imprimer
+                <Printer size={18} />{tr(lang, 'Imprimer', 'Print', 'طباعة')}
               </button>
               <button className="primary-button" type="button" onClick={newInvoice}>
-                <RotateCcw size={18} />Nouvelle facture
+                <RotateCcw size={18} />{t(lang, 'newInvoice')}
               </button>
             </>
           ) : (
@@ -566,7 +605,7 @@ export function Invoices({
                 disabled={savingDraft || finalizing || lines.length === 0 || !calculation.valid}
               >
                 <Save size={18} />
-                {savingDraft ? 'Enregistrement…' : draftId ? 'Mettre à jour' : t(lang, 'saveDraft')}
+                {savingDraft ? tr(lang, 'Enregistrement…', 'Saving…', 'جار الحفظ…') : draftId ? tr(lang, 'Mettre à jour', 'Update', 'تحديث') : t(lang, 'saveDraft')}
               </button>
               <button
                 className="secondary-button"
@@ -587,7 +626,7 @@ export function Invoices({
                 disabled={finalizing || lines.length === 0 || !calculation.valid}
               >
                 <CheckCircle2 size={18} />
-                {finalizing ? 'Validation…' : t(lang, 'finalize')}
+                {finalizing ? tr(lang, 'Validation…', 'Finalizing…', 'جار التأكيد…') : t(lang, 'finalize')}
               </button>
             </>
           )}
@@ -597,7 +636,7 @@ export function Invoices({
       {error && (
         <div className="inline-alert error">
           {error}
-          <button type="button" onClick={() => setError('')}>Fermer</button>
+          <button type="button" onClick={() => setError('')}>{tr(lang, 'Fermer', 'Close', 'إغلاق')}</button>
         </div>
       )}
 
@@ -605,14 +644,14 @@ export function Invoices({
         <div className="inline-alert success">
           <FilePenLine size={18} />
           {draftNotice}
-          <button type="button" onClick={() => setDraftNotice('')}>Fermer</button>
+          <button type="button" onClick={() => setDraftNotice('')}>{tr(lang, 'Fermer', 'Close', 'إغلاق')}</button>
         </div>
       )}
 
       {finalized && (
         <div className="inline-alert success">
           <CheckCircle2 size={18} />
-          Facture {finalized.number} enregistrée avec ses remises. Les mouvements de stock sont figés.
+          {tr(lang, `Facture ${finalized.number} enregistrée avec ses remises. Les mouvements de stock sont figés.`, `Invoice ${finalized.number} saved with its discounts. Stock movements are locked.`, `تم حفظ الفاتورة ${finalized.number} مع خصوماتها وتثبيت حركات المخزون.`)}
         </div>
       )}
 
@@ -620,8 +659,8 @@ export function Invoices({
         <section className="panel saved-drafts-panel">
           <div className="saved-drafts-heading">
             <div>
-              <span className="eyebrow">Travail en cours</span>
-              <strong>Brouillons sauvegardés</strong>
+              <span className="eyebrow">{tr(lang, 'Travail en cours', 'Work in progress', 'عمل جارٍ')}</span>
+              <strong>{tr(lang, 'Brouillons sauvegardés', 'Saved drafts', 'المسودات المحفوظة')}</strong>
             </div>
             <span>{drafts.length}</span>
           </div>
@@ -640,7 +679,7 @@ export function Invoices({
                   <span>
                     <strong>{draft.customerName}</strong>
                     <small>
-                      {draft.lineCount} ligne(s) · {formatDraftDate(draft.updatedAt, locale)}
+                      {tr(lang, `${draft.lineCount} ligne(s)`, `${draft.lineCount} line(s)`, `${draft.lineCount} سطر`)} · {formatDraftDate(draft.updatedAt, locale)}
                     </small>
                   </span>
                   <b>{formatTnd(draft.totalTtcMillimes, locale)}</b>
@@ -648,7 +687,7 @@ export function Invoices({
                 <button
                   className="icon-button danger-button"
                   type="button"
-                  title="Supprimer le brouillon"
+                  title={tr(lang, 'Supprimer le brouillon', 'Delete draft', 'حذف المسودة')}
                   onClick={() => void deleteDraft(draft.id)}
                 >
                   <Trash2 size={16} />
@@ -666,17 +705,18 @@ export function Invoices({
               <span>01</span>
               <div>
                 <strong>{t(lang, 'customer')}</strong>
-                <small>Facultatif pour une vente au comptoir</small>
+                <small>{tr(lang, 'Facultatif pour une vente au comptoir', 'Optional for a walk-in sale', 'اختياري للبيع المباشر')}</small>
               </div>
             </div>
             <div className="invoice-customer-row">
               <label className="field">
-                <span>Nom / société</span>
+                <span>{tr(lang, 'Nom / société', 'Name / company', 'الاسم / الشركة')}</span>
                 <input
                   value={finalized?.customerName ?? customer}
                   onChange={(event) => {
                     setCustomer(event.target.value)
                     setSelectedClient(null)
+                    setCustomerPhone('')
                     setCustomerAddress('')
                     setCustomerTaxId('')
                   }}
@@ -690,7 +730,7 @@ export function Invoices({
                   onClick={() => setShowClientPicker(true)}
                 >
                   <Search size={16} />
-                  Choisir un client enregistré
+                  {tr(lang, 'Choisir un client enregistré', 'Choose a saved customer', 'اختيار حريف مسجل')}
                 </button>
               )}
             </div>
@@ -700,7 +740,7 @@ export function Invoices({
                 <div>
                   <strong>{selectedClient.name}</strong>
                   <span>
-                    {[selectedClient.phone, selectedClient.address].filter(Boolean).join(' · ') || 'Coordonnées non renseignées'}
+                    {[selectedClient.phone, selectedClient.address].filter(Boolean).join(' · ') || tr(lang, 'Coordonnées non renseignées', 'No contact details', 'بيانات الاتصال غير مسجلة')}
                   </span>
                   {selectedClient.taxId && <small>MF: {selectedClient.taxId}</small>}
                 </div>
@@ -710,6 +750,7 @@ export function Invoices({
                   onClick={() => {
                     setSelectedClient(null)
                     setCustomer(business?.defaultCustomerName ?? t(lang, 'walkIn'))
+                    setCustomerPhone('')
                     setCustomerAddress('')
                     setCustomerTaxId('')
                   }}
@@ -723,21 +764,31 @@ export function Invoices({
             {!finalized && !selectedClient && (
               <div className="invoice-customer-details">
                 <label className="field">
-                  <span>Adresse client</span>
+                  <span>{tr(lang, 'Téléphone client', 'Customer phone', 'هاتف الحريف')}</span>
+                  <input
+                    inputMode="tel"
+                    value={customerPhone}
+                    onChange={(event) => setCustomerPhone(event.target.value)}
+                    maxLength={40}
+                    placeholder="Ex. 22 000 000"
+                  />
+                </label>
+                <label className="field">
+                  <span>{tr(lang, 'Adresse client', 'Customer address', 'عنوان الحريف')}</span>
                   <input
                     value={customerAddress}
                     onChange={(event) => setCustomerAddress(event.target.value)}
                     maxLength={220}
-                    placeholder="Facultatif"
+                    placeholder={tr(lang, 'Facultatif', 'Optional', 'اختياري')}
                   />
                 </label>
                 <label className="field">
-                  <span>Matricule fiscal client</span>
+                  <span>{tr(lang, 'Matricule fiscal client', 'Customer tax ID', 'المعرّف الجبائي للحريف')}</span>
                   <input
                     value={customerTaxId}
                     onChange={(event) => setCustomerTaxId(event.target.value)}
                     maxLength={80}
-                    placeholder="Facultatif"
+                    placeholder={tr(lang, 'Facultatif', 'Optional', 'اختياري')}
                   />
                 </label>
               </div>
@@ -745,13 +796,13 @@ export function Invoices({
 
             {!finalized && (
               <label className="field invoice-note-field">
-                <span>Note facture</span>
+                <span>{tr(lang, 'Note facture', 'Invoice note', 'ملاحظة الفاتورة')}</span>
                 <textarea
                   rows={3}
                   maxLength={500}
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Ex. règlement, observation ou message au client…"
+                  placeholder={tr(lang, 'Ex. règlement, observation ou message au client…', 'E.g. payment, note or message to the customer…', 'مثال: خلاص أو ملاحظة أو رسالة للحريف…')}
                 />
               </label>
             )}
@@ -761,15 +812,15 @@ export function Invoices({
             <div className="section-label">
               <span>02</span>
               <div>
-                <strong>Articles & prix client</strong>
-                <small>Le prix catalogue reste visible; vous pouvez saisir le prix réellement accordé.</small>
+                <strong>{tr(lang, 'Articles & prix client', 'Parts & customer prices', 'القطع وأسعار الحريف')}</strong>
+                <small>{tr(lang, 'Le prix catalogue reste visible; vous pouvez saisir le prix réellement accordé.', 'The catalogue price stays visible; enter the price actually given.', 'يبقى سعر الدليل ظاهرًا؛ أدخل السعر الممنوح فعليًا.')}</small>
               </div>
             </div>
 
             {!finalized && (
               <button className="part-search-button" type="button" onClick={() => setShowPicker(true)}>
                 <Search size={18} />
-                <span>Rechercher par référence, OEM, désignation ou véhicule…</span>
+                <span>{tr(lang, 'Rechercher par référence, OEM, désignation ou véhicule…', 'Search by reference, OEM, description or vehicle…', 'ابحث بالمرجع أو OEM أو البيان أو السيارة…')}</span>
                 <kbd>F2</kbd>
               </button>
             )}
@@ -777,7 +828,7 @@ export function Invoices({
             <div className="editor-lines negotiated-lines">
               {lines.length === 0 && !finalized && (
                 <div className="editor-empty">
-                  Aucune ligne. Recherchez une pièce pour commencer la facture.
+                  {tr(lang, 'Aucune ligne. Recherchez une pièce pour commencer la facture.', 'No lines yet. Search for a part to start the invoice.', 'لا توجد أسطر. ابحث عن قطعة لبدء الفاتورة.')}
                 </div>
               )}
 
@@ -809,7 +860,7 @@ export function Invoices({
                     </div>
 
                     <label className="qty-control">
-                      <span>Qté</span>
+                      <span>{t(lang, 'qty')}</span>
                       <input
                         type="number"
                         min="1"
@@ -821,12 +872,12 @@ export function Invoices({
                     </label>
 
                     <div className="catalogue-price">
-                      <span>Catalogue HT</span>
+                      <span>{tr(lang, 'Catalogue HT', 'List price excl. VAT', 'سعر الدليل دون أداء')}</span>
                       <strong>{formatTnd(listPrice, locale)}</strong>
                     </div>
 
                     <label className={hasDiscount ? 'negotiated-price discounted' : 'negotiated-price'}>
-                      <span>Prix client HT</span>
+                      <span>{tr(lang, 'Prix client HT', 'Customer price excl. VAT', 'سعر الحريف دون أداء')}</span>
                       <div>
                         <input
                           inputMode="decimal"
@@ -839,7 +890,7 @@ export function Invoices({
                     </label>
 
                     <div className="line-price negotiated-total">
-                      <span>Total HT</span>
+                      <span>{tr(lang, 'Total HT', 'Total excl. VAT', 'المجموع دون أداء')}</span>
                       <strong>
                         {formatTnd(
                           (clientPrice ?? listPrice) * line.qty,
@@ -871,7 +922,7 @@ export function Invoices({
 
             {!finalized && (
               <button className="add-line-button" type="button" onClick={() => setShowPicker(true)}>
-                <Plus size={17} />Ajouter une ligne
+                <Plus size={17} />{tr(lang, 'Ajouter une ligne', 'Add a line', 'إضافة سطر')}
               </button>
             )}
 
@@ -884,10 +935,8 @@ export function Invoices({
             <div className="section-label">
               <span>03</span>
               <div>
-                <strong>Remise sur le total</strong>
-                <small>
-                  Exemple: si le total est 205 DT, choisissez “Total final” et saisissez 200.
-                </small>
+                <strong>{tr(lang, 'Remise sur le total', 'Discount on total', 'خصم على المجموع')}</strong>
+                <small>{tr(lang, 'Exemple: si le total est 205 DT, choisissez « Total final » et saisissez 200.', 'Example: if the total is 205 TND, choose “Final total” and enter 200.', 'مثال: إذا كان المجموع 205 د.ت، اختر «المجموع النهائي» وأدخل 200.')}</small>
               </div>
             </div>
 
@@ -899,22 +948,22 @@ export function Invoices({
                     className={adjustmentMode === 'target' ? 'active' : ''}
                     onClick={() => { setAdjustmentMode('target'); setAdjustmentText('') }}
                   >
-                    Total final
+                    {tr(lang, 'Total final', 'Final total', 'المجموع النهائي')}
                   </button>
                   <button
                     type="button"
                     className={adjustmentMode === 'discount' ? 'active' : ''}
                     onClick={() => { setAdjustmentMode('discount'); setAdjustmentText('') }}
                   >
-                    Remise DT
+                    {tr(lang, 'Remise DT', 'Discount TND', 'خصم د.ت')}
                   </button>
                 </div>
 
                 <label className="adjustment-input">
                   <span>
                     {adjustmentMode === 'target'
-                      ? 'Total TTC souhaité'
-                      : 'Remise globale TTC'}
+                      ? tr(lang, 'Total TTC souhaité', 'Desired total incl. VAT', 'المجموع المطلوب شامل الأداء')
+                      : tr(lang, 'Remise globale TTC', 'Overall discount incl. VAT', 'الخصم العام شامل الأداء')}
                   </span>
                   <div>
                     <input
@@ -938,14 +987,14 @@ export function Invoices({
                 <div className="adjustment-result">
                   <Percent size={17} />
                   <div>
-                    <span>Remise globale calculée</span>
+                    <span>{tr(lang, 'Remise globale calculée', 'Calculated overall discount', 'الخصم العام المحسوب')}</span>
                     <strong>{formatTnd(calculation.globalDiscount, locale)}</strong>
                   </div>
                 </div>
               </div>
             ) : (
               <div className="locked-discount-summary">
-                <span>Remise globale enregistrée</span>
+                <span>{tr(lang, 'Remise globale enregistrée', 'Saved overall discount', 'الخصم العام المحفوظ')}</span>
                 <strong>{formatTnd(finalized.globalDiscountTtcMillimes, locale)}</strong>
               </div>
             )}
@@ -957,19 +1006,19 @@ export function Invoices({
 
           <div className="editor-summary invoice-discount-summary">
             <div>
-              <span>Total HT catalogue</span>
+              <span>{tr(lang, 'Total HT catalogue', 'List total excl. VAT', 'مجموع الدليل دون أداء')}</span>
               <strong>{formatTnd(paper.subtotalGrossHt, locale)}</strong>
             </div>
 
             {paper.lineDiscount > 0 && (
               <div className="discount-row">
-                <span>Remises articles</span>
+                <span>{tr(lang, 'Remises articles', 'Part discounts', 'خصومات القطع')}</span>
                 <strong>- {formatTnd(paper.lineDiscount, locale)}</strong>
               </div>
             )}
 
             <div>
-              <span>Total HT net</span>
+              <span>{tr(lang, 'Total HT net', 'Net total excl. VAT', 'الصافي دون أداء')}</span>
               <strong>{formatTnd(paper.netHt, locale)}</strong>
             </div>
             <div>
@@ -984,14 +1033,14 @@ export function Invoices({
                   <strong>{formatTnd(paper.totalBeforeGlobal, locale)}</strong>
                 </div>
                 <div className="discount-row">
-                  <span>Remise globale</span>
+                  <span>{tr(lang, 'Remise globale', 'Overall discount', 'الخصم العام')}</span>
                   <strong>- {formatTnd(paper.globalDiscount, locale)}</strong>
                 </div>
               </>
             )}
 
             <div className="grand-total">
-              <span>Total TTC à payer</span>
+              <span>{tr(lang, 'Total TTC à payer', 'Total to pay incl. VAT', 'المبلغ للدفع شامل الأداء')}</span>
               <strong>{formatTnd(paper.total, locale)}</strong>
             </div>
           </div>
@@ -1019,10 +1068,12 @@ export function Invoices({
 
       {showClientPicker && (
         <ClientPicker
+          lang={lang}
           onClose={() => setShowClientPicker(false)}
           onSelect={(client) => {
             setSelectedClient(client)
             setCustomer(client.name)
+            setCustomerPhone(client.phone ?? '')
             setCustomerAddress(client.address ?? '')
             setCustomerTaxId(client.taxId ?? '')
             setShowClientPicker(false)
@@ -1034,9 +1085,11 @@ export function Invoices({
 }
 
 function ClientPicker({
+  lang,
   onClose,
   onSelect
 }: {
+  lang: Language
   onClose: () => void
   onSelect: (client: Client) => void
 }): JSX.Element {
@@ -1055,7 +1108,7 @@ function ClientPicker({
         if (active) setClients(result)
       } catch (cause) {
         if (active) {
-          setError(cause instanceof Error ? cause.message : 'Recherche client impossible.')
+          setError(cause instanceof Error ? cause.message : tr(lang, 'Recherche client impossible.', 'Customer search failed.', 'تعذر البحث عن الحريف.'))
         }
       } finally {
         if (active) setLoading(false)
@@ -1066,7 +1119,7 @@ function ClientPicker({
       active = false
       window.clearTimeout(timeout)
     }
-  }, [query])
+  }, [query, lang])
 
   return (
     <div
@@ -1079,9 +1132,9 @@ function ClientPicker({
       <div className="modal-card picker-card">
         <div className="modal-heading">
           <div>
-            <span className="eyebrow">Clients</span>
-            <h2>Choisir un client enregistré</h2>
-            <p>Le nom, l’adresse et le matricule fiscal seront repris sur la facture.</p>
+            <span className="eyebrow">{t(lang, 'clients')}</span>
+            <h2>{tr(lang, 'Choisir un client enregistré', 'Choose a saved customer', 'اختيار حريف مسجل')}</h2>
+            <p>{tr(lang, 'Le nom, l’adresse et le matricule fiscal seront repris sur la facture.', 'The name, address and tax ID will be used on the invoice.', 'سيتم استعمال الاسم والعنوان والمعرّف الجبائي في الفاتورة.')}</p>
           </div>
           <button className="icon-button" type="button" onClick={onClose}>
             <X size={18} />
@@ -1094,14 +1147,14 @@ function ClientPicker({
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Nom, téléphone, matricule fiscal…"
+            placeholder={tr(lang, 'Nom, téléphone, matricule fiscal…', 'Name, phone, tax ID…', 'الاسم أو الهاتف أو المعرّف الجبائي…')}
           />
         </label>
 
         {error && <div className="inline-alert error">{error}</div>}
 
         <div className="picker-results">
-          {loading && <div className="panel-empty">Recherche…</div>}
+          {loading && <div className="panel-empty">{tr(lang, 'Recherche…', 'Searching…', 'جار البحث…')}</div>}
           {!loading && clients.map((client) => (
             <button
               className="picker-row"
@@ -1114,17 +1167,17 @@ function ClientPicker({
                 <small>
                   {[client.phone, client.taxId ? `MF ${client.taxId}` : null]
                     .filter(Boolean)
-                    .join(' · ') || 'Aucune coordonnée'}
+                    .join(' · ') || tr(lang, 'Aucune coordonnée', 'No contact details', 'لا توجد بيانات اتصال')}
                 </small>
               </span>
               <span className="picker-meta">
-                <small>{client.address || 'Adresse non renseignée'}</small>
+                <small>{client.address || tr(lang, 'Adresse non renseignée', 'Address not entered', 'العنوان غير مسجل')}</small>
               </span>
               <Plus size={18} />
             </button>
           ))}
           {!loading && clients.length === 0 && (
-            <div className="panel-empty">Aucun client trouvé.</div>
+            <div className="panel-empty">{tr(lang, 'Aucun client trouvé.', 'No customer found.', 'لم يتم العثور على حريف.')}</div>
           )}
         </div>
       </div>
@@ -1156,7 +1209,7 @@ function PartPicker({
         if (active) setParts(result)
       } catch (cause) {
         if (active) {
-          setError(cause instanceof Error ? cause.message : 'Recherche impossible.')
+          setError(cause instanceof Error ? cause.message : tr(lang, 'Recherche impossible.', 'Search failed.', 'تعذر البحث.'))
         }
       } finally {
         if (active) setLoading(false)
@@ -1167,7 +1220,7 @@ function PartPicker({
       active = false
       window.clearTimeout(timeout)
     }
-  }, [query])
+  }, [query, lang])
 
   return (
     <div
@@ -1180,9 +1233,9 @@ function PartPicker({
       <div className="modal-card picker-card">
         <div className="modal-heading">
           <div>
-            <span className="eyebrow">Catalogue</span>
-            <h2>Ajouter une pièce à la facture</h2>
-            <p>Seules les pièces avec stock disponible peuvent être ajoutées.</p>
+            <span className="eyebrow">{tr(lang, 'Catalogue', 'Catalogue', 'الدليل')}</span>
+            <h2>{tr(lang, 'Ajouter une pièce à la facture', 'Add a part to the invoice', 'إضافة قطعة إلى الفاتورة')}</h2>
+            <p>{tr(lang, 'Seules les pièces avec stock disponible peuvent être ajoutées.', 'Only parts currently in stock can be added.', 'يمكن إضافة القطع المتوفرة في المخزون فقط.')}</p>
           </div>
           <button className="icon-button" type="button" onClick={onClose}>
             <X size={18} />
@@ -1195,14 +1248,14 @@ function PartPicker({
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Référence, OEM, désignation, véhicule…"
+            placeholder={tr(lang, 'Référence, OEM, désignation, véhicule…', 'Reference, OEM, description, vehicle…', 'المرجع أو OEM أو البيان أو السيارة…')}
           />
         </label>
 
         {error && <div className="inline-alert error">{error}</div>}
 
         <div className="picker-results">
-          {loading && <div className="panel-empty">Recherche…</div>}
+          {loading && <div className="panel-empty">{tr(lang, 'Recherche…', 'Searching…', 'جار البحث…')}</div>}
 
           {!loading && parts.filter((part) => part.quantity > 0).map((part) => (
             <button
@@ -1217,13 +1270,13 @@ function PartPicker({
                   {part.reference}
                   {part.oemReference ? ` · OEM ${part.oemReference}` : ''}
                   {' · '}
-                  {part.vehicleCompatibility || 'Compatibilité non précisée'}
+                  {part.vehicleCompatibility || tr(lang, 'Compatibilité non précisée', 'Compatibility not specified', 'التوافق غير محدد')}
                 </small>
               </span>
               <span className="picker-meta">
                 <strong>{formatTnd(part.salePriceMillimes, localeFor(lang))}</strong>
                 <small>
-                  Stock: {part.quantity} · {part.location || 'sans emplacement'}
+                  {tr(lang, 'Stock', 'Stock', 'المخزون')}: {part.quantity} · {part.location || tr(lang, 'sans emplacement', 'no location', 'دون مكان')}
                 </small>
               </span>
               <Plus size={18} />
@@ -1232,7 +1285,7 @@ function PartPicker({
 
           {!loading && parts.filter((part) => part.quantity > 0).length === 0 && (
             <div className="panel-empty">
-              Aucune pièce disponible pour cette recherche.
+              {tr(lang, 'Aucune pièce disponible pour cette recherche.', 'No available part matches this search.', 'لا توجد قطعة متوفرة تطابق هذا البحث.')}
             </div>
           )}
         </div>
@@ -1250,6 +1303,7 @@ function InvoicePaper({
     number: string
     finalizedAt: string | null
     customerName: string
+    customerPhone: string | null
     customerAddress: string | null
     customerTaxId: string | null
     notes: string | null
@@ -1276,14 +1330,20 @@ function InvoicePaper({
 }): JSX.Element {
   const locale = localeFor(lang)
   const dateText = paper.finalizedAt
-    ? new Date(paper.finalizedAt + 'Z').toLocaleString(locale)
-    : new Date().toLocaleString(locale)
+    ? new Date(paper.finalizedAt.replace(' ', 'T') + 'Z').toLocaleString(
+        locale,
+        { dateStyle: 'short', timeStyle: 'short' }
+      )
+    : new Date().toLocaleString(locale, {
+        dateStyle: 'short',
+        timeStyle: 'short'
+      })
 
   return (
     <article className="invoice-paper">
       <header className="paper-header">
         <div className="paper-brand">
-          <div className="paper-mark">BM</div>
+          <BrandLogo className="paper-logo" />
           <div>
             <strong>{paper.business.companyName.toUpperCase()}</strong>
             <span>{paper.business.activity.toUpperCase()}</span>
@@ -1292,8 +1352,8 @@ function InvoicePaper({
         </div>
         <div className="paper-title">
           <span>FACTURE</span>
-          <strong>{paper.number}</strong>
-          <small>{dateText}</small>
+          <strong>N° {paper.number}</strong>
+          <small>Date : {dateText}</small>
         </div>
       </header>
 
@@ -1301,6 +1361,7 @@ function InvoicePaper({
         <div>
           <span className="paper-label">CLIENT</span>
           <strong>{paper.customerName || 'Client comptoir'}</strong>
+          {paper.customerPhone && <small>Tél: {paper.customerPhone}</small>}
           {paper.customerAddress && <small>{paper.customerAddress}</small>}
           {paper.customerTaxId && <small>MF: {paper.customerTaxId}</small>}
         </div>
@@ -1320,9 +1381,9 @@ function InvoicePaper({
             <th>Réf.</th>
             <th>Désignation</th>
             <th className="number">Qté</th>
-            <th className="number">P.U. client HT</th>
-            <th className="number">Remise</th>
-            <th className="number">Montant HT</th>
+            <th className="number">Prix unit. HT</th>
+            <th className="number">Remise/u</th>
+            <th className="number">Total HT</th>
           </tr>
         </thead>
         <tbody>
@@ -1495,6 +1556,7 @@ function calculateDraft(
 
 function invoiceContentFingerprint(input: {
   customer: string
+  customerPhone: string
   customerAddress: string
   customerTaxId: string
   notes: string
@@ -1504,6 +1566,7 @@ function invoiceContentFingerprint(input: {
 }): string {
   return JSON.stringify({
     customer: input.customer.trim(),
+    customerPhone: input.customerPhone.trim(),
     customerAddress: input.customerAddress.trim(),
     customerTaxId: input.customerTaxId.trim(),
     notes: input.notes.trim(),

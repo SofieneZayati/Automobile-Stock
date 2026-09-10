@@ -13,10 +13,15 @@ import type {
   InvoiceDraft,
   InvoiceDraftLine,
   InvoiceDraftListItem,
-  InvoiceListItem
+  InvoiceListItem,
+  InvoiceReturn,
+  ReturnInvoiceInput
 } from '../../shared/contracts'
 
-type CalculatedLine = FinalizedInvoiceLine & {
+type CalculatedLine = Omit<
+  FinalizedInvoiceLine,
+  'invoiceLineId' | 'returnedQuantity' | 'returnableQuantity'
+> & {
   partId: number | null
   discountPercent: number
 }
@@ -34,9 +39,17 @@ type CalculatedInvoice = {
 type ResolvedClient = {
   id: number
   name: string
+  phone: string | null
   address: string | null
   tax_id: string | null
 } | null
+
+type ResolvedCustomer = {
+  name: string
+  phone: string | null
+  address: string | null
+  taxId: string | null
+}
 
 export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
   const db = getDatabase()
@@ -74,21 +87,25 @@ export function finalizeInvoice(input: FinalizeInvoiceInput): FinalizedInvoice {
     const number = nextInvoiceNumber(business)
     const selectedClient = resolveClient(input.clientId)
     const customer = resolveCustomer(input, business, selectedClient)
+    const associatedClient = selectedClient
+      ?? findOrCreateManualClient(customer, business, true)
 
     const invoiceResult = db.prepare(`
       INSERT INTO invoices(
-        number, status, client_id, customer_name, customer_address, customer_tax_id,
+        number, status, client_id, customer_name, customer_phone,
+        customer_address, customer_tax_id,
         subtotal_ht_millimes, discount_millimes, global_discount_ttc_millimes,
         tax_millimes, total_ttc_millimes, notes, business_snapshot_json,
         updated_at, finalized_at
       ) VALUES (
-        ?, 'FINALIZED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        ?, 'FINALIZED', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
         datetime('now'), datetime('now')
       )
     `).run(
       number,
-      selectedClient?.id ?? null,
+      associatedClient?.id ?? null,
       customer.name,
+      customer.phone,
       customer.address,
       customer.taxId,
       calculated.subtotalHtMillimes,
@@ -184,6 +201,8 @@ export function saveInvoiceDraft(
   const customer = resolveCustomer(input, business, selectedClient)
 
   return inTransaction(db, () => {
+    const associatedClient = selectedClient
+      ?? findOrCreateManualClient(customer, business, false)
     let id: number
 
     if (draftId !== undefined) {
@@ -194,6 +213,7 @@ export function saveInvoiceDraft(
         SET
           client_id = ?,
           customer_name = ?,
+          customer_phone = ?,
           customer_address = ?,
           customer_tax_id = ?,
           subtotal_ht_millimes = ?,
@@ -206,8 +226,9 @@ export function saveInvoiceDraft(
           updated_at = datetime('now')
         WHERE id = ? AND status = 'DRAFT'
       `).run(
-        selectedClient?.id ?? null,
+        associatedClient?.id ?? null,
         customer.name,
+        customer.phone,
         customer.address,
         customer.taxId,
         calculated.subtotalHtMillimes,
@@ -229,16 +250,18 @@ export function saveInvoiceDraft(
     } else {
       const result = db.prepare(`
         INSERT INTO invoices(
-          status, client_id, customer_name, customer_address, customer_tax_id,
+          status, client_id, customer_name, customer_phone,
+          customer_address, customer_tax_id,
           subtotal_ht_millimes, discount_millimes, global_discount_ttc_millimes,
           tax_millimes, total_ttc_millimes, notes, business_snapshot_json,
           updated_at
         ) VALUES (
-          'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now')
+          'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now')
         )
       `).run(
-        selectedClient?.id ?? null,
+        associatedClient?.id ?? null,
         customer.name,
+        customer.phone,
         customer.address,
         customer.taxId,
         calculated.subtotalHtMillimes,
@@ -277,7 +300,8 @@ export function getInvoiceDraft(id: number): InvoiceDraft | null {
 
   const invoice = db.prepare(`
     SELECT
-      id, client_id, customer_name, customer_address, customer_tax_id, notes,
+      id, client_id, customer_name, customer_phone, customer_address,
+      customer_tax_id, notes,
       created_at, COALESCE(updated_at, created_at) AS updated_at,
       subtotal_ht_millimes, discount_millimes, global_discount_ttc_millimes,
       tax_millimes, total_ttc_millimes, business_snapshot_json
@@ -287,6 +311,7 @@ export function getInvoiceDraft(id: number): InvoiceDraft | null {
     id: number
     client_id: number | null
     customer_name: string
+    customer_phone: string | null
     customer_address: string | null
     customer_tax_id: string | null
     notes: string | null
@@ -333,6 +358,7 @@ export function getInvoiceDraft(id: number): InvoiceDraft | null {
     id: invoice.id,
     clientId: invoice.client_id,
     customerName: invoice.customer_name,
+    customerPhone: invoice.customer_phone,
     customerAddress: invoice.customer_address,
     customerTaxId: invoice.customer_tax_id,
     notes: invoice.notes,
@@ -442,6 +468,15 @@ export function cancelInvoice(
       throw new Error('Seule une facture finalisée peut être annulée.')
     }
 
+    const existingReturns = Number((db.prepare(`
+      SELECT COUNT(*) AS count FROM invoice_returns WHERE invoice_id = ?
+    `).get(id) as { count: number }).count)
+    if (existingReturns > 0) {
+      throw new Error(
+        'Cette facture contient déjà un retour. Utilisez Retour / échange pour les autres articles.'
+      )
+    }
+
     const statusResult = db.prepare(`
       UPDATE invoices
       SET
@@ -531,6 +566,270 @@ export function cancelInvoice(
   })
 }
 
+export function returnInvoiceItems(input: ReturnInvoiceInput): FinalizedInvoice {
+  if (!Number.isInteger(input.invoiceId) || input.invoiceId <= 0) {
+    throw new Error('La facture sélectionnée est invalide.')
+  }
+
+  const reason = input.reason?.trim()
+  if (!reason) throw new Error('La raison du retour est obligatoire.')
+  if (reason.length > 500) throw new Error('La raison du retour est trop longue.')
+  if (!Array.isArray(input.lines) || input.lines.length === 0) {
+    throw new Error('Sélectionnez au moins une pièce à retourner.')
+  }
+
+  const requested = new Map<number, number>()
+  for (const line of input.lines) {
+    if (!Number.isInteger(line.invoiceLineId) || line.invoiceLineId <= 0) {
+      throw new Error('Une ligne de retour est invalide.')
+    }
+    if (!Number.isInteger(line.quantity) || line.quantity <= 0) {
+      throw new Error('La quantité retournée doit être un nombre entier supérieur à zéro.')
+    }
+    if (requested.has(line.invoiceLineId)) {
+      throw new Error('Une même ligne ne peut apparaître deux fois dans le retour.')
+    }
+    requested.set(line.invoiceLineId, line.quantity)
+  }
+
+  const db = getDatabase()
+
+  return inTransaction(db, () => {
+    const invoice = db.prepare(`
+      SELECT
+        id, number, status, global_discount_ttc_millimes,
+        total_ttc_millimes
+      FROM invoices
+      WHERE id = ? AND number IS NOT NULL
+    `).get(input.invoiceId) as {
+      id: number
+      number: string
+      status: 'DRAFT' | 'FINALIZED' | 'CANCELLED'
+      global_discount_ttc_millimes: number
+      total_ttc_millimes: number
+    } | undefined
+
+    if (!invoice) throw new Error('Facture introuvable.')
+    if (invoice.status !== 'FINALIZED') {
+      throw new Error('Les retours sont possibles uniquement sur une facture finalisée.')
+    }
+
+    const soldLines = db.prepare(`
+      SELECT
+        il.id, il.part_id, il.reference_snapshot, il.designation_snapshot,
+        il.quantity, il.line_ht_millimes, il.tax_millimes,
+        il.line_ttc_millimes,
+        COALESCE(SUM(irl.quantity), 0) AS returned_quantity
+      FROM invoice_lines il
+      LEFT JOIN invoice_return_lines irl ON irl.invoice_line_id = il.id
+      WHERE il.invoice_id = ?
+      GROUP BY il.id
+      ORDER BY il.id
+    `).all(invoice.id) as Array<{
+      id: number
+      part_id: number | null
+      reference_snapshot: string
+      designation_snapshot: string
+      quantity: number
+      line_ht_millimes: number
+      tax_millimes: number
+      line_ttc_millimes: number
+      returned_quantity: number
+    }>
+
+    const calculatedLines = [...requested].map(([invoiceLineId, quantity]) => {
+      const sold = soldLines.find((line) => line.id === invoiceLineId)
+      if (!sold) throw new Error('Une pièce sélectionnée ne fait pas partie de cette facture.')
+
+      const remaining = sold.quantity - sold.returned_quantity
+      if (quantity > remaining) {
+        throw new Error(
+          `Retour trop élevé pour ${sold.reference_snapshot}. Maximum disponible: ${remaining}.`
+        )
+      }
+
+      const afterQuantity = sold.returned_quantity + quantity
+      const lineHtMillimes = cumulativeShare(
+        sold.line_ht_millimes,
+        afterQuantity,
+        sold.quantity
+      ) - cumulativeShare(
+        sold.line_ht_millimes,
+        sold.returned_quantity,
+        sold.quantity
+      )
+      const taxMillimes = cumulativeShare(
+        sold.tax_millimes,
+        afterQuantity,
+        sold.quantity
+      ) - cumulativeShare(
+        sold.tax_millimes,
+        sold.returned_quantity,
+        sold.quantity
+      )
+      const lineTtcMillimes = cumulativeShare(
+        sold.line_ttc_millimes,
+        afterQuantity,
+        sold.quantity
+      ) - cumulativeShare(
+        sold.line_ttc_millimes,
+        sold.returned_quantity,
+        sold.quantity
+      )
+
+      return {
+        sold,
+        quantity,
+        lineHtMillimes,
+        taxMillimes,
+        lineTtcMillimes
+      }
+    })
+
+    const subtotalHtMillimes = calculatedLines.reduce(
+      (sum, line) => sum + line.lineHtMillimes,
+      0
+    )
+    const taxMillimes = calculatedLines.reduce(
+      (sum, line) => sum + line.taxMillimes,
+      0
+    )
+    const grossTtcMillimes = calculatedLines.reduce(
+      (sum, line) => sum + line.lineTtcMillimes,
+      0
+    )
+    const previousReturns = db.prepare(`
+      SELECT
+        COALESCE(SUM(gross_ttc_millimes), 0) AS gross_ttc,
+        COALESCE(SUM(global_discount_share_millimes), 0) AS discount_share,
+        COUNT(*) AS return_count
+      FROM invoice_returns
+      WHERE invoice_id = ?
+    `).get(invoice.id) as {
+      gross_ttc: number
+      discount_share: number
+      return_count: number
+    }
+    const totalBeforeGlobal =
+      invoice.total_ttc_millimes + invoice.global_discount_ttc_millimes
+    const cumulativeGross = previousReturns.gross_ttc + grossTtcMillimes
+    const cumulativeDiscountShare = totalBeforeGlobal > 0
+      ? Math.min(
+          invoice.global_discount_ttc_millimes,
+          Math.round(
+            invoice.global_discount_ttc_millimes
+            * cumulativeGross
+            / totalBeforeGlobal
+          )
+        )
+      : 0
+    const globalDiscountShareMillimes = Math.max(
+      0,
+      cumulativeDiscountShare - previousReturns.discount_share
+    )
+    const refundTtcMillimes = Math.max(
+      0,
+      grossTtcMillimes - globalDiscountShareMillimes
+    )
+    const returnNumber = `RET-${invoice.number}-${String(
+      previousReturns.return_count + 1
+    ).padStart(2, '0')}`
+
+    const returnResult = db.prepare(`
+      INSERT INTO invoice_returns(
+        invoice_id, number, reason, subtotal_ht_millimes, tax_millimes,
+        gross_ttc_millimes, global_discount_share_millimes,
+        refund_ttc_millimes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      invoice.id,
+      returnNumber,
+      reason,
+      subtotalHtMillimes,
+      taxMillimes,
+      grossTtcMillimes,
+      globalDiscountShareMillimes,
+      refundTtcMillimes
+    )
+    const returnId = Number(returnResult.lastInsertRowid)
+
+    const insertReturnLine = db.prepare(`
+      INSERT INTO invoice_return_lines(
+        return_id, invoice_line_id, part_id, reference_snapshot,
+        designation_snapshot, quantity, line_ht_millimes,
+        tax_millimes, line_ttc_millimes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const partQuantity = db.prepare('SELECT quantity FROM parts WHERE id = ?')
+    const restorePart = db.prepare(`
+      UPDATE parts
+      SET quantity = quantity + ?, updated_at = datetime('now')
+      WHERE id = ?
+    `)
+    const movementInsert = db.prepare(`
+      INSERT INTO stock_movements(
+        part_id, movement_type, quantity_delta, quantity_before,
+        quantity_after, invoice_id, note
+      ) VALUES (?, 'RETURN', ?, ?, ?, ?, ?)
+    `)
+
+    for (const line of calculatedLines) {
+      insertReturnLine.run(
+        returnId,
+        line.sold.id,
+        line.sold.part_id,
+        line.sold.reference_snapshot,
+        line.sold.designation_snapshot,
+        line.quantity,
+        line.lineHtMillimes,
+        line.taxMillimes,
+        line.lineTtcMillimes
+      )
+
+      if (!line.sold.part_id) continue
+      const current = partQuantity.get(line.sold.part_id) as {
+        quantity: number
+      } | undefined
+      if (!current) {
+        throw new Error(
+          `La pièce ${line.sold.reference_snapshot} est introuvable pendant le retour.`
+        )
+      }
+      const after = current.quantity + line.quantity
+      if (restorePart.run(line.quantity, line.sold.part_id).changes !== 1) {
+        throw new Error(`Impossible de réintégrer ${line.sold.reference_snapshot} au stock.`)
+      }
+      movementInsert.run(
+        line.sold.part_id,
+        line.quantity,
+        current.quantity,
+        after,
+        invoice.id,
+        `${returnNumber} — ${reason}`
+      )
+    }
+
+    db.prepare(`
+      INSERT INTO audit_log(entity_type, entity_id, action, details_json)
+      VALUES ('invoice', ?, 'RETURN', ?)
+    `).run(invoice.id, JSON.stringify({
+      invoiceNumber: invoice.number,
+      returnNumber,
+      reason,
+      refundTtcMillimes,
+      quantities: calculatedLines.map((line) => ({
+        invoiceLineId: line.sold.id,
+        reference: line.sold.reference_snapshot,
+        quantity: line.quantity
+      }))
+    }))
+
+    const updated = getInvoice(invoice.id)
+    if (!updated) throw new Error('La facture retournée n’a pas pu être rechargée.')
+    return updated
+  })
+}
+
 export function getInvoice(id: number): FinalizedInvoice | null {
   if (!Number.isInteger(id) || id <= 0) return null
   const db = getDatabase()
@@ -538,7 +837,8 @@ export function getInvoice(id: number): FinalizedInvoice | null {
   const invoice = db.prepare(`
     SELECT
       id, number, status, client_id, customer_name, customer_address,
-      customer_tax_id, notes, finalized_at, cancelled_at, cancellation_reason,
+      customer_phone, customer_tax_id, notes, finalized_at, cancelled_at,
+      cancellation_reason,
       subtotal_ht_millimes, discount_millimes,
       global_discount_ttc_millimes, tax_millimes, total_ttc_millimes,
       business_snapshot_json
@@ -552,6 +852,7 @@ export function getInvoice(id: number): FinalizedInvoice | null {
     status: 'FINALIZED' | 'CANCELLED'
     client_id: number | null
     customer_name: string
+    customer_phone: string | null
     customer_address: string | null
     customer_tax_id: string | null
     notes: string | null
@@ -570,13 +871,19 @@ export function getInvoice(id: number): FinalizedInvoice | null {
 
   const rows = db.prepare(`
     SELECT
-      reference_snapshot, designation_snapshot, quantity, unit_price_ht_millimes,
-      discount_millimes, tax_percent, line_ht_millimes, tax_millimes,
-      line_ttc_millimes
-    FROM invoice_lines
-    WHERE invoice_id = ?
-    ORDER BY id
+      il.id, il.part_id, il.reference_snapshot, il.designation_snapshot,
+      il.quantity, il.unit_price_ht_millimes, il.discount_millimes,
+      il.tax_percent, il.line_ht_millimes, il.tax_millimes,
+      il.line_ttc_millimes,
+      COALESCE(SUM(irl.quantity), 0) AS returned_quantity
+    FROM invoice_lines il
+    LEFT JOIN invoice_return_lines irl ON irl.invoice_line_id = il.id
+    WHERE il.invoice_id = ?
+    GROUP BY il.id
+    ORDER BY il.id
   `).all(id) as Array<{
+    id: number
+    part_id: number | null
     reference_snapshot: string
     designation_snapshot: string
     quantity: number
@@ -586,7 +893,79 @@ export function getInvoice(id: number): FinalizedInvoice | null {
     line_ht_millimes: number
     tax_millimes: number
     line_ttc_millimes: number
+    returned_quantity: number
   }>
+
+  const returnRows = db.prepare(`
+    SELECT
+      id, number, reason, subtotal_ht_millimes, tax_millimes,
+      gross_ttc_millimes, global_discount_share_millimes,
+      refund_ttc_millimes, created_at
+    FROM invoice_returns
+    WHERE invoice_id = ?
+    ORDER BY created_at, id
+  `).all(id) as Array<{
+    id: number
+    number: string
+    reason: string
+    subtotal_ht_millimes: number
+    tax_millimes: number
+    gross_ttc_millimes: number
+    global_discount_share_millimes: number
+    refund_ttc_millimes: number
+    created_at: string
+  }>
+  const returns = returnRows.map((row): InvoiceReturn => ({
+    id: row.id,
+    number: row.number,
+    reason: row.reason,
+    subtotalHtMillimes: row.subtotal_ht_millimes,
+    taxMillimes: row.tax_millimes,
+    grossTtcMillimes: row.gross_ttc_millimes,
+    globalDiscountShareMillimes: row.global_discount_share_millimes,
+    refundTtcMillimes: row.refund_ttc_millimes,
+    createdAt: row.created_at,
+    lines: (db.prepare(`
+      SELECT
+        id, invoice_line_id, part_id, reference_snapshot,
+        designation_snapshot, quantity, line_ht_millimes,
+        tax_millimes, line_ttc_millimes
+      FROM invoice_return_lines
+      WHERE return_id = ?
+      ORDER BY id
+    `).all(row.id) as Array<{
+      id: number
+      invoice_line_id: number
+      part_id: number | null
+      reference_snapshot: string
+      designation_snapshot: string
+      quantity: number
+      line_ht_millimes: number
+      tax_millimes: number
+      line_ttc_millimes: number
+    }>).map((line) => ({
+      id: Number(line.id),
+      invoiceLineId: Number(line.invoice_line_id),
+      partId: line.part_id === null ? null : Number(line.part_id),
+      reference: String(line.reference_snapshot),
+      designation: String(line.designation_snapshot),
+      quantity: Number(line.quantity),
+      lineHtMillimes: Number(line.line_ht_millimes),
+      taxMillimes: Number(line.tax_millimes),
+      lineTtcMillimes: Number(line.line_ttc_millimes)
+    }))
+  }))
+  const returnedTtcMillimes = returns.reduce(
+    (sum, item) => sum + item.refundTtcMillimes,
+    0
+  )
+  const returnStatus = rows.every(
+    (row) => row.returned_quantity >= row.quantity
+  ) && rows.length > 0
+    ? 'FULL' as const
+    : rows.some((row) => row.returned_quantity > 0)
+      ? 'PARTIAL' as const
+      : 'NONE' as const
 
   return {
     id: invoice.id,
@@ -594,6 +973,7 @@ export function getInvoice(id: number): FinalizedInvoice | null {
     status: invoice.status,
     clientId: invoice.client_id,
     customerName: invoice.customer_name,
+    customerPhone: invoice.customer_phone,
     customerAddress: invoice.customer_address,
     customerTaxId: invoice.customer_tax_id,
     notes: invoice.notes,
@@ -607,12 +987,17 @@ export function getInvoice(id: number): FinalizedInvoice | null {
     totalBeforeGlobalDiscountTtcMillimes:
       invoice.total_ttc_millimes + invoice.global_discount_ttc_millimes,
     totalTtcMillimes: invoice.total_ttc_millimes,
+    returnedTtcMillimes,
+    netTtcMillimes: Math.max(0, invoice.total_ttc_millimes - returnedTtcMillimes),
+    returnStatus,
     business: parseBusinessSnapshot(invoice.business_snapshot_json),
     lines: rows.map((row) => {
       const gross = row.unit_price_ht_millimes * row.quantity
       const net = gross - row.discount_millimes
 
       return {
+        invoiceLineId: row.id,
+        partId: row.part_id,
         reference: row.reference_snapshot,
         designation: row.designation_snapshot,
         quantity: row.quantity,
@@ -622,9 +1007,12 @@ export function getInvoice(id: number): FinalizedInvoice | null {
         taxPercent: row.tax_percent,
         lineHtMillimes: row.line_ht_millimes,
         taxMillimes: row.tax_millimes,
-        lineTtcMillimes: row.line_ttc_millimes
+        lineTtcMillimes: row.line_ttc_millimes,
+        returnedQuantity: row.returned_quantity,
+        returnableQuantity: Math.max(0, row.quantity - row.returned_quantity)
       }
-    })
+    }),
+    returns
   }
 }
 
@@ -644,15 +1032,26 @@ export function listInvoices(query = ''): InvoiceListItem[] {
       i.subtotal_ht_millimes,
       i.tax_millimes,
       i.total_ttc_millimes,
-      COUNT(il.id) AS line_count
+      (SELECT COUNT(*) FROM invoice_lines il WHERE il.invoice_id = i.id) AS line_count,
+      (SELECT COALESCE(SUM(il.quantity), 0) FROM invoice_lines il WHERE il.invoice_id = i.id) AS sold_quantity,
+      (
+        SELECT COALESCE(SUM(irl.quantity), 0)
+        FROM invoice_return_lines irl
+        JOIN invoice_lines il ON il.id = irl.invoice_line_id
+        WHERE il.invoice_id = i.id
+      ) AS returned_quantity,
+      (SELECT COUNT(*) FROM invoice_returns ir WHERE ir.invoice_id = i.id) AS return_count,
+      (
+        SELECT COALESCE(SUM(ir.refund_ttc_millimes), 0)
+        FROM invoice_returns ir
+        WHERE ir.invoice_id = i.id
+      ) AS returned_ttc_millimes
     FROM invoices i
-    LEFT JOIN invoice_lines il ON il.invoice_id = i.id
     WHERE i.status IN ('FINALIZED', 'CANCELLED')
       AND i.number IS NOT NULL
       ${needle
         ? "AND (i.number LIKE ? COLLATE NOCASE OR i.customer_name LIKE ? COLLATE NOCASE)"
         : ""}
-    GROUP BY i.id
     ORDER BY i.finalized_at DESC, i.id DESC
     LIMIT 250
   `
@@ -668,6 +1067,10 @@ export function listInvoices(query = ''): InvoiceListItem[] {
     tax_millimes: number
     total_ttc_millimes: number
     line_count: number
+    sold_quantity: number
+    returned_quantity: number
+    return_count: number
+    returned_ttc_millimes: number
   }>
 
   return rows.map((row) => ({
@@ -680,7 +1083,15 @@ export function listInvoices(query = ''): InvoiceListItem[] {
     subtotalHtMillimes: row.subtotal_ht_millimes,
     taxMillimes: row.tax_millimes,
     totalTtcMillimes: row.total_ttc_millimes,
-    lineCount: row.line_count
+    lineCount: row.line_count,
+    returnCount: row.return_count,
+    returnedTtcMillimes: row.returned_ttc_millimes,
+    netTtcMillimes: Math.max(0, row.total_ttc_millimes - row.returned_ttc_millimes),
+    returnStatus: row.returned_quantity <= 0
+      ? 'NONE'
+      : row.returned_quantity >= row.sold_quantity
+        ? 'FULL'
+        : 'PARTIAL'
   }))
 }
 
@@ -702,13 +1113,24 @@ export function listInvoicesByClient(
       i.subtotal_ht_millimes,
       i.tax_millimes,
       i.total_ttc_millimes,
-      COUNT(il.id) AS line_count
+      (SELECT COUNT(*) FROM invoice_lines il WHERE il.invoice_id = i.id) AS line_count,
+      (SELECT COALESCE(SUM(il.quantity), 0) FROM invoice_lines il WHERE il.invoice_id = i.id) AS sold_quantity,
+      (
+        SELECT COALESCE(SUM(irl.quantity), 0)
+        FROM invoice_return_lines irl
+        JOIN invoice_lines il ON il.id = irl.invoice_line_id
+        WHERE il.invoice_id = i.id
+      ) AS returned_quantity,
+      (SELECT COUNT(*) FROM invoice_returns ir WHERE ir.invoice_id = i.id) AS return_count,
+      (
+        SELECT COALESCE(SUM(ir.refund_ttc_millimes), 0)
+        FROM invoice_returns ir
+        WHERE ir.invoice_id = i.id
+      ) AS returned_ttc_millimes
     FROM invoices i
-    LEFT JOIN invoice_lines il ON il.invoice_id = i.id
     WHERE i.client_id = ?
       AND i.status IN ('FINALIZED', 'CANCELLED')
       AND i.number IS NOT NULL
-    GROUP BY i.id
     ORDER BY i.finalized_at DESC, i.id DESC
     LIMIT 250
   `).all(clientIdValue) as Array<{
@@ -722,6 +1144,10 @@ export function listInvoicesByClient(
     tax_millimes: number
     total_ttc_millimes: number
     line_count: number
+    sold_quantity: number
+    returned_quantity: number
+    return_count: number
+    returned_ttc_millimes: number
   }>
 
   return rows.map((row) => ({
@@ -734,7 +1160,15 @@ export function listInvoicesByClient(
     subtotalHtMillimes: row.subtotal_ht_millimes,
     taxMillimes: row.tax_millimes,
     totalTtcMillimes: row.total_ttc_millimes,
-    lineCount: row.line_count
+    lineCount: row.line_count,
+    returnCount: row.return_count,
+    returnedTtcMillimes: row.returned_ttc_millimes,
+    netTtcMillimes: Math.max(0, row.total_ttc_millimes - row.returned_ttc_millimes),
+    returnStatus: row.returned_quantity <= 0
+      ? 'NONE'
+      : row.returned_quantity >= row.sold_quantity
+        ? 'FULL'
+        : 'PARTIAL'
   }))
 }
 
@@ -859,22 +1293,21 @@ function resolveCustomer(
   input: FinalizeInvoiceInput,
   business: BusinessSettings,
   selectedClient: ResolvedClient
-): {
-  name: string
-  address: string | null
-  taxId: string | null
-} {
+): ResolvedCustomer {
   return {
     name:
       selectedClient?.name
-      ?? cleanText(input.customerName)
+      ?? cleanLimitedText(input.customerName, 120, 'Le nom du client')
       ?? business.defaultCustomerName,
+    phone:
+      selectedClient?.phone
+      ?? cleanLimitedText(input.customerPhone, 40, 'Le téléphone du client'),
     address:
       selectedClient?.address
-      ?? cleanText(input.customerAddress),
+      ?? cleanLimitedText(input.customerAddress, 220, 'L’adresse du client'),
     taxId:
       selectedClient?.tax_id
-      ?? cleanText(input.customerTaxId)
+      ?? cleanLimitedText(input.customerTaxId, 80, 'Le matricule fiscal du client')
   }
 }
 
@@ -885,13 +1318,122 @@ function resolveClient(clientId?: number): ResolvedClient {
   }
 
   const row = getDatabase().prepare(`
-    SELECT id, name, address, tax_id
+    SELECT id, name, phone, address, tax_id
     FROM clients
     WHERE id = ?
   `).get(clientId) as ResolvedClient | undefined
 
   if (!row) throw new Error('Client introuvable.')
   return row
+}
+
+function findOrCreateManualClient(
+  customer: ResolvedCustomer,
+  business: BusinessSettings,
+  createIfMissing: boolean
+): ResolvedClient {
+  if (normalizeCustomerName(customer.name) === normalizeCustomerName(business.defaultCustomerName)) {
+    return null
+  }
+
+  const db = getDatabase()
+  const normalizedName = normalizeCustomerName(customer.name)
+  const normalizedPhone = normalizeCustomerPhone(customer.phone)
+  const clients = db.prepare(`
+    SELECT id, name, phone, address, tax_id
+    FROM clients
+    ORDER BY id
+  `).all() as Array<Exclude<ResolvedClient, null>>
+
+  const sameNameClients = clients.filter(
+    (client) => normalizeCustomerName(client.name) === normalizedName
+  )
+  const exactMatch = sameNameClients.find(
+    (client) => normalizeCustomerPhone(client.phone) === normalizedPhone
+  )
+  const match = exactMatch ?? (
+    sameNameClients.length === 1
+    && (!normalizedPhone || !normalizeCustomerPhone(sameNameClients[0].phone))
+      ? sameNameClients[0]
+      : null
+  )
+
+  if (match) return completeMissingClientDetails(match, customer)
+  if (!createIfMissing) return null
+
+  const result = db.prepare(`
+    INSERT INTO clients(name, phone, address, tax_id, notes)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(
+    customer.name,
+    customer.phone,
+    customer.address,
+    customer.taxId,
+    'Créé automatiquement lors de la facturation'
+  )
+  const id = Number(result.lastInsertRowid)
+
+  db.prepare(`
+    INSERT INTO audit_log(entity_type, entity_id, action, details_json)
+    VALUES ('client', ?, 'CREATE_FROM_INVOICE', ?)
+  `).run(id, JSON.stringify({
+    name: customer.name,
+    phone: customer.phone,
+    taxId: customer.taxId
+  }))
+
+  return {
+    id,
+    name: customer.name,
+    phone: customer.phone,
+    address: customer.address,
+    tax_id: customer.taxId
+  }
+}
+
+function completeMissingClientDetails(
+  client: Exclude<ResolvedClient, null>,
+  customer: ResolvedCustomer
+): Exclude<ResolvedClient, null> {
+  const phone = client.phone ?? customer.phone
+  const address = client.address ?? customer.address
+  const taxId = client.tax_id ?? customer.taxId
+
+  if (
+    phone !== client.phone
+    || address !== client.address
+    || taxId !== client.tax_id
+  ) {
+    getDatabase().prepare(`
+      UPDATE clients
+      SET phone = ?, address = ?, tax_id = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(phone, address, taxId, client.id)
+  }
+
+  return {
+    ...client,
+    phone,
+    address,
+    tax_id: taxId
+  }
+}
+
+function normalizeCustomerName(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('fr')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
+function normalizeCustomerPhone(value: string | null): string {
+  let digits = (value ?? '').replace(/\D/g, '')
+  if (digits.startsWith('00216')) digits = digits.slice(5)
+  else if (digits.startsWith('216') && digits.length === 11) digits = digits.slice(3)
+  return digits
 }
 
 function nextInvoiceNumber(settings: BusinessSettings): string {
@@ -1030,9 +1572,31 @@ function resolveGlobalDiscount(
   return 0
 }
 
+function cumulativeShare(
+  total: number,
+  quantity: number,
+  soldQuantity: number
+): number {
+  if (soldQuantity <= 0 || quantity <= 0) return 0
+  if (quantity >= soldQuantity) return total
+  return Math.round(total * quantity / soldQuantity)
+}
+
 function cleanText(value?: string): string | null {
   const text = value?.trim()
   return text ? text : null
+}
+
+function cleanLimitedText(
+  value: string | undefined,
+  maxLength: number,
+  label: string
+): string | null {
+  const text = cleanText(value)
+  if (text && text.length > maxLength) {
+    throw new Error(`${label} est trop long.`)
+  }
+  return text
 }
 
 function requireText(value: string, field: string): string {

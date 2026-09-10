@@ -60,9 +60,6 @@ export function Topbar({
       </form>
 
       <div className="topbar-actions">
-        <span className="local-status" title="Données stockées localement">
-          Local
-        </span>
         <div className="language-switch" aria-label="Langue">
           {(['fr', 'en', 'ar'] as Language[]).map((code) => (
             <button

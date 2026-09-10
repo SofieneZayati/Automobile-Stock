@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type JSX } from 'react'
 import { Archive, ArchiveRestore, Coins, Download, FilterX, History, PackageCheck, PackagePlus, Pencil, PlusCircle, Search, TriangleAlert, X } from 'lucide-react'
-import { Language, localeFor, t } from '../i18n'
+import { Language, localeFor, t, tr } from '../i18n'
 import { formatTnd } from '../lib/money'
 import type { CreatePartInput, Part, StockMovement, Supplier, UpdatePartInput } from '../../../shared/contracts'
 
@@ -34,11 +34,11 @@ export function Stock({
       setError('')
       setParts(await window.desktop.parts.list(search, includeArchived))
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible de charger le stock.')
+      setError(cause instanceof Error ? cause.message : tr(lang, 'Impossible de charger le stock.', 'Unable to load stock.', 'تعذر تحميل المخزون.'))
     } finally {
       setLoading(false)
     }
-  }, [query, includeArchived])
+  }, [query, includeArchived, lang])
 
   useEffect(() => {
     if (searchRequestId > 0) {
@@ -172,9 +172,9 @@ export function Stock({
     <div className="page">
       <section className="page-heading">
         <div>
-          <span className="eyebrow">Catalogue local · {lowCount} alerte(s)</span>
+          <span className="eyebrow">{tr(lang, `Catalogue du magasin · ${lowCount} alerte(s)`, `Shop catalogue · ${lowCount} alert(s)`, `دليل المحل · ${lowCount} تنبيه`)}</span>
           <h1>{t(lang, 'stock')}</h1>
-          <p>Retrouvez rapidement une référence, contrôlez les quantités et ajustez le stock.</p>
+          <p>{tr(lang, 'Retrouvez rapidement une référence, contrôlez les quantités et ajustez le stock.', 'Quickly find a reference, check quantities and adjust stock.', 'اعثر بسرعة على المرجع وراقب الكميات وعدّل المخزون.')}</p>
         </div>
         <div className="heading-actions">
           <button
@@ -182,10 +182,10 @@ export function Stock({
             type="button"
             onClick={() => void exportCsv()}
             disabled={exporting}
-            title="Exporter le catalogue complet en CSV"
+             title={tr(lang, 'Exporter le catalogue complet', 'Export the full catalogue', 'تصدير كامل الدليل')}
           >
             <Download size={18} />
-            {exporting ? 'Export…' : 'Exporter CSV'}
+            {exporting ? tr(lang, 'Export…', 'Exporting…', 'جار التصدير…') : tr(lang, 'Exporter la liste', 'Export list', 'تصدير القائمة')}
           </button>
           <button
             className="primary-button"
@@ -198,11 +198,11 @@ export function Stock({
         </div>
       </section>
 
-      {error && <div className="inline-alert error">{error}<button type="button" onClick={() => void load()}>Réessayer</button></div>}
+      {error && <div className="inline-alert error">{error}<button type="button" onClick={() => void load()}>{tr(lang, 'Réessayer', 'Try again', 'إعادة المحاولة')}</button></div>}
       {notice && (
         <div className="inline-alert success">
           {notice}
-          <button type="button" onClick={() => setNotice('')}>Fermer</button>
+          <button type="button" onClick={() => setNotice('')}>{tr(lang, 'Fermer', 'Close', 'إغلاق')}</button>
         </div>
       )}
 
@@ -210,40 +210,40 @@ export function Stock({
         <div className="stock-metric">
           <span className="stock-metric-icon"><PackageCheck size={18} /></span>
           <div>
-            <small>Références actives</small>
+            <small>{tr(lang, 'Références actives', 'Active references', 'المراجع النشطة')}</small>
             <strong>{metrics.references}</strong>
-            <span>{metrics.units} unité(s) en stock</span>
+            <span>{tr(lang, `${metrics.units} unité(s) en stock`, `${metrics.units} unit(s) in stock`, `${metrics.units} وحدة في المخزون`)}</span>
           </div>
         </div>
         <div className="stock-metric">
           <span className="stock-metric-icon warning"><TriangleAlert size={18} /></span>
           <div>
-            <small>À surveiller</small>
+            <small>{tr(lang, 'À surveiller', 'Needs attention', 'تحتاج متابعة')}</small>
             <strong>{metrics.low + metrics.out}</strong>
-            <span>{metrics.low} faible · {metrics.out} épuisée(s)</span>
+            <span>{tr(lang, `${metrics.low} faible · ${metrics.out} épuisée(s)`, `${metrics.low} low · ${metrics.out} out`, `${metrics.low} منخفض · ${metrics.out} منتهٍ`)}</span>
           </div>
         </div>
         <div className="stock-metric">
           <span className="stock-metric-icon"><Coins size={18} /></span>
           <div>
-            <small>Valeur achat du stock</small>
+            <small>{tr(lang, 'Valeur achat du stock', 'Stock purchase value', 'قيمة شراء المخزون')}</small>
             <strong>{formatTnd(metrics.purchaseValue, localeFor(lang))}</strong>
-            <span>Selon les prix d’achat enregistrés</span>
+            <span>{tr(lang, 'Selon les prix d’achat enregistrés', 'Based on saved purchase prices', 'حسب أسعار الشراء المسجلة')}</span>
           </div>
         </div>
         <div className="stock-metric">
           <span className="stock-metric-icon"><Coins size={18} /></span>
           <div>
-            <small>Valeur vente théorique</small>
+            <small>{tr(lang, 'Valeur vente théorique', 'Potential sales value', 'قيمة البيع المتوقعة')}</small>
             <strong>{formatTnd(metrics.saleValue, localeFor(lang))}</strong>
-            <span>Avant remises commerciales</span>
+            <span>{tr(lang, 'Avant remises commerciales', 'Before discounts', 'قبل الخصومات')}</span>
           </div>
         </div>
       </section>
 
       <section className="panel stock-panel">
         <div className="stock-toolbar">
-          <label className="table-search"><Search size={18} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Référence, OEM, désignation, véhicule, rayon…" /></label>
+          <label className="table-search"><Search size={18} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tr(lang, 'Référence, OEM, désignation, véhicule, rayon…', 'Reference, OEM, description, vehicle, shelf…', 'المرجع أو OEM أو البيان أو السيارة أو الرف…')} /></label>
           <select
             className="stock-filter-select"
             value={stockFilter}
@@ -252,10 +252,10 @@ export function Stock({
             }
             aria-label="Filtrer par niveau de stock"
           >
-            <option value="all">Tous les stocks</option>
-            <option value="available">Disponible</option>
-            <option value="low">Stock faible</option>
-            <option value="out">Épuisé</option>
+            <option value="all">{tr(lang, 'Tous les stocks', 'All stock levels', 'كل حالات المخزون')}</option>
+            <option value="available">{tr(lang, 'Disponible', 'Available', 'متوفر')}</option>
+            <option value="low">{t(lang, 'lowStock')}</option>
+            <option value="out">{tr(lang, 'Épuisé', 'Out of stock', 'غير متوفر')}</option>
           </select>
 
           <select
@@ -264,7 +264,7 @@ export function Stock({
             onChange={(event) => setCategoryFilter(event.target.value)}
             aria-label="Filtrer par catégorie"
           >
-            <option value="all">Toutes catégories</option>
+            <option value="all">{tr(lang, 'Toutes catégories', 'All categories', 'كل الأصناف')}</option>
             {categories.map((category) => (
               <option key={category} value={category}>{category}</option>
             ))}
@@ -276,7 +276,7 @@ export function Stock({
             onChange={(event) => setSupplierFilter(event.target.value)}
             aria-label="Filtrer par fournisseur"
           >
-            <option value="all">Tous fournisseurs</option>
+            <option value="all">{tr(lang, 'Tous fournisseurs', 'All suppliers', 'كل المزودين')}</option>
             {suppliers.map((supplier) => (
               <option key={supplier} value={supplier}>{supplier}</option>
             ))}
@@ -288,7 +288,7 @@ export function Stock({
               checked={includeArchived}
               onChange={(event) => setIncludeArchived(event.target.checked)}
             />
-            <span>Archivées</span>
+            <span>{tr(lang, 'Archivées', 'Archived', 'مؤرشفة')}</span>
           </label>
 
           {(stockFilter !== 'all'
@@ -310,14 +310,14 @@ export function Stock({
 
           <span className="result-count">
             {loading
-              ? 'Chargement…'
+              ? tr(lang, 'Chargement…', 'Loading…', 'جار التحميل…')
               : `${visibleParts.length} / ${parts.length} ${t(lang, 'parts')}`}
           </span>
         </div>
 
         <div className="table-wrap">
           <table className="data-table stock-table">
-            <thead><tr><th>Référence</th><th>Désignation</th><th>Compatibilité</th><th>Catégorie</th><th>Fournisseur</th><th>Empl.</th><th>Stock</th><th>Prix vente</th><th></th></tr></thead>
+            <thead><tr><th>{t(lang, 'ref')}</th><th>{t(lang, 'designation')}</th><th>{tr(lang, 'Compatibilité', 'Compatibility', 'التوافق')}</th><th>{tr(lang, 'Catégorie', 'Category', 'الصنف')}</th><th>{t(lang, 'suppliers')}</th><th>{tr(lang, 'Empl.', 'Location', 'المكان')}</th><th>{tr(lang, 'Stock', 'Stock', 'المخزون')}</th><th>{tr(lang, 'Prix vente', 'Sale price', 'سعر البيع')}</th><th></th></tr></thead>
             <tbody>
               {visibleParts.map((part) => {
                 const low = part.quantity <= part.lowStockThreshold
@@ -326,10 +326,10 @@ export function Stock({
                     <td><span className="mono-ref">{part.reference}</span>{part.oemReference && <span>{part.oemReference}</span>}</td>
                     <td>
                       <strong>{part.designation}</strong>
-                      {!part.isActive && <span className="archived-label">Archivée</span>}
+                      {!part.isActive && <span className="archived-label">{tr(lang, 'Archivée', 'Archived', 'مؤرشفة')}</span>}
                     </td>
                     <td>{part.vehicleCompatibility || '—'}</td>
-                    <td><span className="soft-pill">{part.categoryName || 'Sans catégorie'}</span></td>
+                    <td><span className="soft-pill">{part.categoryName || tr(lang, 'Sans catégorie', 'No category', 'دون صنف')}</span></td>
                     <td>{part.supplierName || '—'}</td>
                     <td><span className="location-pill">{part.location || '—'}</span></td>
                     <td>
@@ -353,7 +353,7 @@ export function Stock({
                             className="icon-button table-more"
                             type="button"
                             onClick={() => setAdjusting(part)}
-                            title="Ajuster le stock"
+                            title={tr(lang, 'Ajuster le stock', 'Adjust stock', 'تعديل المخزون')}
                           >
                             <PlusCircle size={16} />
                           </button>
@@ -362,7 +362,7 @@ export function Stock({
                           className="icon-button table-more"
                           type="button"
                           onClick={() => setHistoryPart(part)}
-                          title="Historique des mouvements"
+                          title={tr(lang, 'Historique des mouvements', 'Movement history', 'سجل الحركات')}
                         >
                           <History size={16} />
                         </button>
@@ -370,7 +370,7 @@ export function Stock({
                           className="icon-button table-more"
                           type="button"
                           onClick={() => setEditing(part)}
-                          title="Modifier la fiche"
+                          title={tr(lang, 'Modifier la fiche', 'Edit part', 'تعديل القطعة')}
                         >
                           <Pencil size={16} />
                         </button>
@@ -378,7 +378,7 @@ export function Stock({
                           className="icon-button table-more"
                           type="button"
                           onClick={() => void toggleArchive(part)}
-                          title={part.isActive ? 'Archiver' : 'Restaurer'}
+                          title={part.isActive ? tr(lang, 'Archiver', 'Archive', 'أرشفة') : tr(lang, 'Restaurer', 'Restore', 'استعادة')}
                         >
                           {part.isActive ? <Archive size={16} /> : <ArchiveRestore size={16} />}
                         </button>
@@ -391,16 +391,16 @@ export function Stock({
           </table>
           {!loading && visibleParts.length === 0 && (
             <div className="table-empty">
-              Aucune pièce ne correspond à la recherche et aux filtres actuels.
+              {tr(lang, 'Aucune pièce ne correspond à la recherche et aux filtres actuels.', 'No part matches the current search and filters.', 'لا توجد قطعة تطابق البحث والمرشحات الحالية.')}
             </div>
           )}
         </div>
       </section>
 
       {showCreate && <CreatePartModal lang={lang} onClose={() => setShowCreate(false)} onCreated={async () => { setShowCreate(false); await load() }} />}
-      {editing && <EditPartModal part={editing} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await load() }} />}
+      {editing && <EditPartModal part={editing} lang={lang} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await load() }} />}
       {historyPart && <MovementHistoryModal part={historyPart} lang={lang} onClose={() => setHistoryPart(null)} />}
-      {adjusting && <AdjustStockModal part={adjusting} onClose={() => setAdjusting(null)} onSaved={async () => { setAdjusting(null); await load() }} />}
+      {adjusting && <AdjustStockModal part={adjusting} lang={lang} onClose={() => setAdjusting(null)} onSaved={async () => { setAdjusting(null); await load() }} />}
     </div>
   )
 }
@@ -433,7 +433,7 @@ function CreatePartModal({ lang, onClose, onCreated }: { lang: Language; onClose
       await window.desktop.parts.create(input)
       await onCreated()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible d’enregistrer la pièce.')
+      setError(cause instanceof Error ? cause.message : tr(lang, 'Impossible d’enregistrer la pièce.', 'Unable to save the part.', 'تعذر حفظ القطعة.'))
     } finally {
       setSaving(false)
     }
@@ -443,27 +443,27 @@ function CreatePartModal({ lang, onClose, onCreated }: { lang: Language; onClose
     <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <form className="modal-card wide" onSubmit={(e) => void submit(e)}>
         <div className="modal-heading">
-          <div><span className="eyebrow">Nouvelle référence</span><h2>Ajouter une pièce</h2><p>Les prix sont saisis en dinars tunisiens.</p></div>
+          <div><span className="eyebrow">{tr(lang, 'Nouvelle référence', 'New reference', 'مرجع جديد')}</span><h2>{t(lang, 'addPart')}</h2><p>{tr(lang, 'Les prix sont saisis en dinars tunisiens.', 'Prices are entered in Tunisian dinars.', 'تُدخل الأسعار بالدينار التونسي.')}</p></div>
           <button className="icon-button" type="button" onClick={onClose}><X size={18} /></button>
         </div>
         {error && <div className="inline-alert error">{error}</div>}
         <div className="form-grid">
-          <label className="field"><span>Référence interne *</span><input name="reference" required autoFocus placeholder="BM-REN-052" /></label>
-          <label className="field"><span>Désignation *</span><input name="designation" required placeholder="Ex. Filtre à air" /></label>
-          <label className="field"><span>Référence OEM</span><input name="oemReference" placeholder="Ex. 165469466R" /></label>
-          <label className="field"><span>Compatibilité véhicule</span><input name="vehicleCompatibility" placeholder="Renault Clio IV" /></label>
-          <label className="field"><span>Catégorie</span><input name="categoryName" placeholder="Filtration" /></label>
-          <SupplierSelect />
-          <label className="field"><span>Emplacement</span><input name="location" placeholder="A-04" /></label>
-          <label className="field"><span>Prix achat (DT)</span><input name="purchasePrice" inputMode="decimal" placeholder="0.000" /></label>
-          <label className="field"><span>Prix vente (DT) *</span><input name="salePrice" required inputMode="decimal" placeholder="0.000" /></label>
-          <label className="field"><span>Stock initial</span><input name="initialQuantity" type="number" min="0" defaultValue="0" /></label>
-          <label className="field"><span>Seuil stock faible</span><input name="lowStockThreshold" type="number" min="0" defaultValue="3" /></label>
-          <label className="field full"><span>Notes</span><input name="notes" placeholder="Information interne facultative" /></label>
+          <label className="field"><span>{tr(lang, 'Référence interne *', 'Internal reference *', 'المرجع الداخلي *')}</span><input name="reference" required autoFocus placeholder="BM-REN-052" /></label>
+          <label className="field"><span>{tr(lang, 'Désignation *', 'Description *', 'البيان *')}</span><input name="designation" required placeholder={tr(lang, 'Ex. Filtre à air', 'E.g. air filter', 'مثال: مصفاة هواء')} /></label>
+          <label className="field"><span>{tr(lang, 'Référence OEM', 'OEM reference', 'مرجع OEM')}</span><input name="oemReference" placeholder="Ex. 165469466R" /></label>
+          <label className="field"><span>{tr(lang, 'Compatibilité véhicule', 'Vehicle compatibility', 'توافق السيارة')}</span><input name="vehicleCompatibility" placeholder="Renault Clio IV" /></label>
+          <label className="field"><span>{tr(lang, 'Catégorie', 'Category', 'الصنف')}</span><input name="categoryName" placeholder={tr(lang, 'Filtration', 'Filters', 'التصفية')} /></label>
+          <SupplierSelect lang={lang} />
+          <label className="field"><span>{tr(lang, 'Emplacement', 'Location', 'المكان')}</span><input name="location" placeholder="A-04" /></label>
+          <label className="field"><span>{tr(lang, 'Prix achat (DT)', 'Purchase price (TND)', 'سعر الشراء (د.ت)')}</span><input name="purchasePrice" inputMode="decimal" placeholder="0.000" /></label>
+          <label className="field"><span>{tr(lang, 'Prix vente (DT) *', 'Sale price (TND) *', 'سعر البيع (د.ت) *')}</span><input name="salePrice" required inputMode="decimal" placeholder="0.000" /></label>
+          <label className="field"><span>{tr(lang, 'Stock initial', 'Initial stock', 'المخزون الأولي')}</span><input name="initialQuantity" type="number" min="0" defaultValue="0" /></label>
+          <label className="field"><span>{tr(lang, 'Seuil stock faible', 'Low-stock level', 'حد المخزون المنخفض')}</span><input name="lowStockThreshold" type="number" min="0" defaultValue="3" /></label>
+          <label className="field full"><span>{tr(lang, 'Notes', 'Notes', 'ملاحظات')}</span><input name="notes" placeholder={tr(lang, 'Information interne facultative', 'Optional internal information', 'معلومة داخلية اختيارية')} /></label>
         </div>
         <div className="modal-actions">
-          <button className="secondary-button" type="button" onClick={onClose}>Annuler</button>
-          <button className="primary-button" type="submit" disabled={saving}>{saving ? 'Enregistrement…' : t(lang, 'addPart')}</button>
+          <button className="secondary-button" type="button" onClick={onClose}>{tr(lang, 'Annuler', 'Cancel', 'إلغاء')}</button>
+          <button className="primary-button" type="submit" disabled={saving}>{saving ? tr(lang, 'Enregistrement…', 'Saving…', 'جار الحفظ…') : t(lang, 'addPart')}</button>
         </div>
       </form>
     </div>
@@ -471,8 +471,9 @@ function CreatePartModal({ lang, onClose, onCreated }: { lang: Language; onClose
 }
 
 
-function EditPartModal({ part, onClose, onSaved }: {
+function EditPartModal({ part, lang, onClose, onSaved }: {
   part: Part
+  lang: Language
   onClose: () => void
   onSaved: () => Promise<void>
 }): JSX.Element {
@@ -503,7 +504,7 @@ function EditPartModal({ part, onClose, onSaved }: {
       await window.desktop.parts.update(input)
       await onSaved()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible de modifier la pièce.')
+      setError(cause instanceof Error ? cause.message : tr(lang, 'Impossible de modifier la pièce.', 'Unable to edit the part.', 'تعذر تعديل القطعة.'))
     } finally {
       setSaving(false)
     }
@@ -515,8 +516,8 @@ function EditPartModal({ part, onClose, onSaved }: {
         <div className="modal-heading">
           <div>
             <span className="eyebrow">{part.reference}</span>
-            <h2>Modifier la pièce</h2>
-            <p>La quantité reste séparée: utilisez “Ajuster le stock” pour garder une trace de chaque mouvement.</p>
+            <h2>{tr(lang, 'Modifier la pièce', 'Edit part', 'تعديل القطعة')}</h2>
+            <p>{tr(lang, 'La quantité reste séparée: utilisez « Ajuster le stock » pour garder une trace de chaque mouvement.', 'Quantity is kept separate: use “Adjust stock” to keep a record of every movement.', 'تبقى الكمية منفصلة: استعمل «تعديل المخزون» لحفظ سجل كل حركة.')}</p>
           </div>
           <button className="icon-button" type="button" onClick={onClose}><X size={18} /></button>
         </div>
@@ -524,34 +525,34 @@ function EditPartModal({ part, onClose, onSaved }: {
         {error && <div className="inline-alert error">{error}</div>}
 
         <div className="form-grid">
-          <label className="field"><span>Référence interne *</span><input name="reference" required autoFocus defaultValue={part.reference} /></label>
-          <label className="field"><span>Désignation *</span><input name="designation" required defaultValue={part.designation} /></label>
-          <label className="field"><span>Référence OEM</span><input name="oemReference" defaultValue={part.oemReference || ''} /></label>
-          <label className="field"><span>Compatibilité véhicule</span><input name="vehicleCompatibility" defaultValue={part.vehicleCompatibility || ''} /></label>
-          <label className="field"><span>Catégorie</span><input name="categoryName" defaultValue={part.categoryName || ''} /></label>
-          <SupplierSelect defaultSupplierId={part.supplierId} />
-          <label className="field"><span>Emplacement</span><input name="location" defaultValue={part.location || ''} /></label>
-          <label className="field"><span>Prix achat (DT)</span><input name="purchasePrice" inputMode="decimal" defaultValue={editableTnd(part.purchasePriceMillimes)} /></label>
-          <label className="field"><span>Prix vente (DT) *</span><input name="salePrice" required inputMode="decimal" defaultValue={editableTnd(part.salePriceMillimes)} /></label>
-          <label className="field"><span>Seuil stock faible</span><input name="lowStockThreshold" type="number" min="0" defaultValue={part.lowStockThreshold} /></label>
+          <label className="field"><span>{tr(lang, 'Référence interne *', 'Internal reference *', 'المرجع الداخلي *')}</span><input name="reference" required autoFocus defaultValue={part.reference} /></label>
+          <label className="field"><span>{tr(lang, 'Désignation *', 'Description *', 'البيان *')}</span><input name="designation" required defaultValue={part.designation} /></label>
+          <label className="field"><span>{tr(lang, 'Référence OEM', 'OEM reference', 'مرجع OEM')}</span><input name="oemReference" defaultValue={part.oemReference || ''} /></label>
+          <label className="field"><span>{tr(lang, 'Compatibilité véhicule', 'Vehicle compatibility', 'توافق السيارة')}</span><input name="vehicleCompatibility" defaultValue={part.vehicleCompatibility || ''} /></label>
+          <label className="field"><span>{tr(lang, 'Catégorie', 'Category', 'الصنف')}</span><input name="categoryName" defaultValue={part.categoryName || ''} /></label>
+          <SupplierSelect lang={lang} defaultSupplierId={part.supplierId} />
+          <label className="field"><span>{tr(lang, 'Emplacement', 'Location', 'المكان')}</span><input name="location" defaultValue={part.location || ''} /></label>
+          <label className="field"><span>{tr(lang, 'Prix achat (DT)', 'Purchase price (TND)', 'سعر الشراء (د.ت)')}</span><input name="purchasePrice" inputMode="decimal" defaultValue={editableTnd(part.purchasePriceMillimes)} /></label>
+          <label className="field"><span>{tr(lang, 'Prix vente (DT) *', 'Sale price (TND) *', 'سعر البيع (د.ت) *')}</span><input name="salePrice" required inputMode="decimal" defaultValue={editableTnd(part.salePriceMillimes)} /></label>
+          <label className="field"><span>{tr(lang, 'Seuil stock faible', 'Low-stock level', 'حد المخزون المنخفض')}</span><input name="lowStockThreshold" type="number" min="0" defaultValue={part.lowStockThreshold} /></label>
           <div className="stock-edit-lock">
-            <span>Stock actuel</span>
+            <span>{tr(lang, 'Stock actuel', 'Current stock', 'المخزون الحالي')}</span>
             <strong>{part.quantity}</strong>
-            <small>Non modifiable depuis cette fiche.</small>
+            <small>{tr(lang, 'Non modifiable depuis cette fiche.', 'Use stock adjustment to change it.', 'استعمل تعديل المخزون لتغييره.')}</small>
           </div>
-          <label className="field full"><span>Notes</span><input name="notes" defaultValue={part.notes || ''} /></label>
+          <label className="field full"><span>{tr(lang, 'Notes', 'Notes', 'ملاحظات')}</span><input name="notes" defaultValue={part.notes || ''} /></label>
         </div>
 
         <div className="modal-actions">
-          <button className="secondary-button" type="button" onClick={onClose} disabled={saving}>Annuler</button>
-          <button className="primary-button" type="submit" disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer les modifications'}</button>
+          <button className="secondary-button" type="button" onClick={onClose} disabled={saving}>{tr(lang, 'Annuler', 'Cancel', 'إلغاء')}</button>
+          <button className="primary-button" type="submit" disabled={saving}>{saving ? tr(lang, 'Enregistrement…', 'Saving…', 'جار الحفظ…') : tr(lang, 'Enregistrer les modifications', 'Save changes', 'حفظ التعديلات')}</button>
         </div>
       </form>
     </div>
   )
 }
 
-function AdjustStockModal({ part, onClose, onSaved }: { part: Part; onClose: () => void; onSaved: () => Promise<void> }): JSX.Element {
+function AdjustStockModal({ part, lang, onClose, onSaved }: { part: Part; lang: Language; onClose: () => void; onSaved: () => Promise<void> }): JSX.Element {
   const [delta, setDelta] = useState(1)
   const [reason, setReason] = useState<'PURCHASE' | 'CORRECTION' | 'RETURN' | 'OTHER'>('PURCHASE')
   const [note, setNote] = useState('')
@@ -565,7 +566,7 @@ function AdjustStockModal({ part, onClose, onSaved }: { part: Part; onClose: () 
       await window.desktop.parts.adjustStock({ partId: part.id, delta, reason, note })
       await onSaved()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible d’ajuster le stock.')
+      setError(cause instanceof Error ? cause.message : tr(lang, 'Impossible d’ajuster le stock.', 'Unable to adjust stock.', 'تعذر تعديل المخزون.'))
     } finally {
       setSaving(false)
     }
@@ -575,19 +576,19 @@ function AdjustStockModal({ part, onClose, onSaved }: { part: Part; onClose: () 
     <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal-card">
         <div className="modal-heading">
-          <div><span className="eyebrow">{part.reference}</span><h2>Ajuster le stock</h2><p>{part.designation} · Stock actuel: <strong>{part.quantity}</strong></p></div>
+          <div><span className="eyebrow">{part.reference}</span><h2>{tr(lang, 'Ajuster le stock', 'Adjust stock', 'تعديل المخزون')}</h2><p>{part.designation} · {tr(lang, 'Stock actuel', 'Current stock', 'المخزون الحالي')}: <strong>{part.quantity}</strong></p></div>
           <button className="icon-button" type="button" onClick={onClose}><X size={18} /></button>
         </div>
         {error && <div className="inline-alert error">{error}</div>}
         <div className="form-grid single">
-          <label className="field"><span>Variation</span><input type="number" value={delta} onChange={(e) => setDelta(Number(e.target.value))} /></label>
-          <label className="field"><span>Motif</span><select value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}><option value="PURCHASE">Entrée fournisseur</option><option value="RETURN">Retour</option><option value="CORRECTION">Correction inventaire</option><option value="OTHER">Autre</option></select></label>
-          <label className="field"><span>Note</span><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Bon fournisseur, raison de correction…" /></label>
-          <div className="stock-after">Stock après opération: <strong>{part.quantity + (Number.isFinite(delta) ? delta : 0)}</strong></div>
+          <label className="field"><span>{tr(lang, 'Variation', 'Change', 'التغيير')}</span><input type="number" value={delta} onChange={(e) => setDelta(Number(e.target.value))} /></label>
+          <label className="field"><span>{tr(lang, 'Motif', 'Reason', 'السبب')}</span><select value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}><option value="PURCHASE">{tr(lang, 'Entrée fournisseur', 'Supplier delivery', 'دخول من مزود')}</option><option value="CORRECTION">{tr(lang, 'Correction inventaire', 'Inventory correction', 'تصحيح الجرد')}</option><option value="OTHER">{tr(lang, 'Autre', 'Other', 'آخر')}</option></select></label>
+          <label className="field"><span>{tr(lang, 'Note', 'Note', 'ملاحظة')}</span><input value={note} onChange={(e) => setNote(e.target.value)} placeholder={tr(lang, 'Bon fournisseur, raison de correction…', 'Delivery note, correction reason…', 'وصل المزود أو سبب التصحيح…')} /></label>
+          <div className="stock-after">{tr(lang, 'Stock après opération', 'Stock after operation', 'المخزون بعد العملية')}: <strong>{part.quantity + (Number.isFinite(delta) ? delta : 0)}</strong></div>
         </div>
         <div className="modal-actions">
-          <button className="secondary-button" type="button" onClick={onClose}>Annuler</button>
-          <button className="primary-button" type="button" onClick={() => void save()} disabled={saving || !Number.isInteger(delta) || delta === 0 || part.quantity + delta < 0}>{saving ? 'Enregistrement…' : 'Enregistrer le mouvement'}</button>
+          <button className="secondary-button" type="button" onClick={onClose}>{tr(lang, 'Annuler', 'Cancel', 'إلغاء')}</button>
+          <button className="primary-button" type="button" onClick={() => void save()} disabled={saving || !Number.isInteger(delta) || delta === 0 || part.quantity + delta < 0}>{saving ? tr(lang, 'Enregistrement…', 'Saving…', 'جار الحفظ…') : tr(lang, 'Enregistrer le mouvement', 'Save movement', 'حفظ الحركة')}</button>
         </div>
       </div>
     </div>
@@ -643,9 +644,9 @@ function MovementHistoryModal({
         <div className="modal-heading">
           <div>
             <span className="eyebrow">{part.reference}</span>
-            <h2>Historique du stock</h2>
+            <h2>{tr(lang, 'Historique du stock', 'Stock history', 'سجل المخزون')}</h2>
             <p>
-              {part.designation} · Stock actuel: <strong>{part.quantity}</strong>
+              {part.designation} · {tr(lang, 'Stock actuel', 'Current stock', 'المخزون الحالي')}: <strong>{part.quantity}</strong>
             </p>
           </div>
           <button className="icon-button" type="button" onClick={onClose}>
@@ -656,9 +657,9 @@ function MovementHistoryModal({
         {error && <div className="inline-alert error">{error}</div>}
 
         {loading ? (
-          <div className="panel-empty">Chargement…</div>
+          <div className="panel-empty">{tr(lang, 'Chargement…', 'Loading…', 'جار التحميل…')}</div>
         ) : movements.length === 0 ? (
-          <div className="panel-empty">Aucun mouvement enregistré.</div>
+          <div className="panel-empty">{tr(lang, 'Aucun mouvement enregistré.', 'No stock movement recorded.', 'لا توجد حركة مخزون مسجلة.')}</div>
         ) : (
           <div className="movement-list">
             {movements.map((movement) => (
@@ -671,10 +672,10 @@ function MovementHistoryModal({
                 </div>
 
                 <div className="movement-main">
-                  <strong>{movementLabel(movement.movementType)}</strong>
+                  <strong>{movementLabel(movement.movementType, lang)}</strong>
                   <span>
                     {movement.quantityBefore} → {movement.quantityAfter}
-                    {movement.invoiceNumber ? ` · Facture ${movement.invoiceNumber}` : ''}
+                    {movement.invoiceNumber ? ` · ${tr(lang, 'Facture', 'Invoice', 'فاتورة')} ${movement.invoiceNumber}` : ''}
                   </span>
                   {movement.note && <small>{movement.note}</small>}
                 </div>
@@ -689,7 +690,7 @@ function MovementHistoryModal({
 
         <div className="modal-actions">
           <button className="primary-button" type="button" onClick={onClose}>
-            Fermer
+            {tr(lang, 'Fermer', 'Close', 'إغلاق')}
           </button>
         </div>
       </div>
@@ -697,15 +698,15 @@ function MovementHistoryModal({
   )
 }
 
-function movementLabel(type: StockMovement['movementType']): string {
+function movementLabel(type: StockMovement['movementType'], lang: Language): string {
   switch (type) {
-    case 'INITIAL': return 'Stock initial'
-    case 'PURCHASE': return 'Entrée fournisseur'
-    case 'SALE': return 'Vente'
-    case 'CORRECTION': return 'Correction inventaire'
-    case 'RETURN': return 'Retour'
-    case 'CANCELLATION': return 'Annulation'
-    default: return 'Autre mouvement'
+    case 'INITIAL': return tr(lang, 'Stock initial', 'Initial stock', 'المخزون الأولي')
+    case 'PURCHASE': return tr(lang, 'Entrée fournisseur', 'Supplier delivery', 'دخول من مزود')
+    case 'SALE': return tr(lang, 'Vente', 'Sale', 'بيع')
+    case 'CORRECTION': return tr(lang, 'Correction inventaire', 'Inventory correction', 'تصحيح الجرد')
+    case 'RETURN': return tr(lang, 'Retour client', 'Customer return', 'إرجاع حريف')
+    case 'CANCELLATION': return tr(lang, 'Annulation', 'Cancellation', 'إلغاء')
+    default: return tr(lang, 'Autre mouvement', 'Other movement', 'حركة أخرى')
   }
 }
 
@@ -717,8 +718,10 @@ function formatMovementDate(value: string, locale: string): string {
 }
 
 function SupplierSelect({
+  lang,
   defaultSupplierId
 }: {
+  lang: Language
   defaultSupplierId?: number | null
 }): JSX.Element {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -741,10 +744,10 @@ function SupplierSelect({
 
   return (
     <label className="field">
-      <span>Fournisseur</span>
+      <span>{t(lang, 'suppliers')}</span>
       <select name="supplierId" defaultValue={defaultSupplierId ?? ''}>
         <option value="">
-          {loading ? 'Chargement…' : 'Aucun fournisseur'}
+          {loading ? tr(lang, 'Chargement…', 'Loading…', 'جار التحميل…') : tr(lang, 'Aucun fournisseur', 'No supplier', 'دون مزود')}
         </option>
         {suppliers.map((supplier) => (
           <option key={supplier.id} value={supplier.id}>

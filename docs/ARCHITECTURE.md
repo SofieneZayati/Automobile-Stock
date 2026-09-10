@@ -31,7 +31,10 @@ The renderer never receives raw filesystem or Node.js access.
 
 ## Database location
 
-The database file will live in Electron's application-data directory rather than next to the executable. This keeps the portable executable replaceable without risking business data.
+The database file lives in Electron's application-data directory rather than
+next to the executable. On first launch only, the supplied clean database
+embedded in the executable is copied there and migrated to the current schema.
+This keeps the portable executable replaceable without risking business data.
 
 A later delivery option may add a clearly labelled **Backup data** folder on the flash disk, but live data should remain on the shop PC unless the client explicitly wants true USB-portable data.
 

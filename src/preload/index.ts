@@ -7,6 +7,8 @@ import type {
   CreateSupplierInput,
   DesktopApi,
   FinalizeInvoiceInput,
+  ReturnInvoiceInput,
+  SalesReportRange,
   UpdateClientInput,
   UpdatePartInput,
   UpdateSupplierInput
@@ -51,11 +53,18 @@ const api: DesktopApi = {
     listDrafts: () => ipcRenderer.invoke('invoices:draft-list'),
     deleteDraft: (id: number) => ipcRenderer.invoke('invoices:draft-delete', id),
     cancel: (id: number, reason: string) =>
-      ipcRenderer.invoke('invoices:cancel', id, reason)
+      ipcRenderer.invoke('invoices:cancel', id, reason),
+    returnItems: (input: ReturnInvoiceInput) =>
+      ipcRenderer.invoke('invoices:return-items', input)
   },
   backup: {
     create: () => ipcRenderer.invoke('backup:create'),
-    restore: () => ipcRenderer.invoke('backup:restore')
+    restore: () => ipcRenderer.invoke('backup:restore'),
+    automaticStatus: () => ipcRenderer.invoke('backup:automatic-status')
+  },
+  reports: {
+    sales: (range: SalesReportRange) =>
+      ipcRenderer.invoke('reports:sales', range)
   },
   settings: {
     getBusiness: () => ipcRenderer.invoke('settings:business:get'),

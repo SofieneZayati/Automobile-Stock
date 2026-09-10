@@ -14,7 +14,7 @@ import type {
   Supplier,
   UpdateSupplierInput
 } from '../../../shared/contracts'
-import { Language } from '../i18n'
+import { Language, t, tr } from '../i18n'
 
 type SupplierFormState = {
   name: string
@@ -32,7 +32,7 @@ const emptyForm: SupplierFormState = {
   notes: ''
 }
 
-export function Suppliers({ lang: _lang }: { lang: Language }): JSX.Element {
+export function Suppliers({ lang }: { lang: Language }): JSX.Element {
   const [query, setQuery] = useState('')
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,7 +53,7 @@ export function Suppliers({ lang: _lang }: { lang: Language }): JSX.Element {
           setError(
             cause instanceof Error
               ? cause.message
-              : 'Impossible de charger les fournisseurs.'
+              : tr(lang, 'Impossible de charger les fournisseurs.', 'Unable to load suppliers.', 'تعذر تحميل المزودين.')
           )
         }
       } finally {
@@ -65,7 +65,7 @@ export function Suppliers({ lang: _lang }: { lang: Language }): JSX.Element {
       active = false
       window.clearTimeout(timeout)
     }
-  }, [query])
+  }, [query, lang])
 
   async function refresh(): Promise<void> {
     setSuppliers(await window.desktop.suppliers.list(query))
@@ -75,11 +75,9 @@ export function Suppliers({ lang: _lang }: { lang: Language }): JSX.Element {
     <div className="page suppliers-page">
       <section className="page-heading">
         <div>
-          <span className="eyebrow">Approvisionnement</span>
-          <h1>Fournisseurs</h1>
-          <p>
-            Gardez les coordonnées fournisseurs et associez-les aux références du stock.
-          </p>
+          <span className="eyebrow">{tr(lang, 'Approvisionnement', 'Supply', 'التزويد')}</span>
+          <h1>{t(lang, 'suppliers')}</h1>
+          <p>{tr(lang, 'Gardez les coordonnées fournisseurs et associez-les aux références du stock.', 'Keep supplier details and link them to stock references.', 'احفظ بيانات المزودين واربطها بمراجع المخزون.')}</p>
         </div>
 
         <div className="heading-actions">
@@ -92,7 +90,7 @@ export function Suppliers({ lang: _lang }: { lang: Language }): JSX.Element {
             }}
           >
             <UserPlus size={18} />
-            Nouveau fournisseur
+            {tr(lang, 'Nouveau fournisseur', 'New supplier', 'مزود جديد')}
           </button>
         </div>
       </section>
@@ -100,7 +98,7 @@ export function Suppliers({ lang: _lang }: { lang: Language }): JSX.Element {
       {error && (
         <div className="inline-alert error">
           {error}
-          <button type="button" onClick={() => setError('')}>Fermer</button>
+          <button type="button" onClick={() => setError('')}>{tr(lang, 'Fermer', 'Close', 'إغلاق')}</button>
         </div>
       )}
 
@@ -111,26 +109,26 @@ export function Suppliers({ lang: _lang }: { lang: Language }): JSX.Element {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Nom, téléphone, email ou adresse…"
+              placeholder={tr(lang, 'Nom, téléphone, email ou adresse…', 'Name, phone, email or address…', 'الاسم أو الهاتف أو البريد أو العنوان…')}
             />
           </label>
           <span>
-            {suppliers.length} fournisseur{suppliers.length === 1 ? '' : 's'}
+            {tr(lang, `${suppliers.length} fournisseur${suppliers.length === 1 ? '' : 's'}`, `${suppliers.length} supplier(s)`, `${suppliers.length} مزود`)}
           </span>
         </div>
 
         {loading ? (
-          <div className="panel-empty">Chargement…</div>
+          <div className="panel-empty">{tr(lang, 'Chargement…', 'Loading…', 'جار التحميل…')}</div>
         ) : suppliers.length === 0 ? (
           <div className="client-empty-state">
             <div className="client-empty-icon"><Truck size={24} /></div>
             <strong>
-              {query ? 'Aucun fournisseur trouvé' : 'Aucun fournisseur enregistré'}
+              {query ? tr(lang, 'Aucun fournisseur trouvé', 'No supplier found', 'لم يتم العثور على مزود') : tr(lang, 'Aucun fournisseur enregistré', 'No supplier saved', 'لا يوجد مزود مسجل')}
             </strong>
             <p>
               {query
-                ? 'Essayez une autre recherche.'
-                : 'Ajoutez les fournisseurs habituels pour les associer aux pièces du catalogue.'}
+                ? tr(lang, 'Essayez une autre recherche.', 'Try another search.', 'جرّب بحثًا آخر.')
+                : tr(lang, 'Ajoutez les fournisseurs habituels pour les associer aux pièces du catalogue.', 'Add regular suppliers to link them to catalogue parts.', 'أضف المزودين المعتادين لربطهم بقطع الدليل.')}
             </p>
           </div>
         ) : (
@@ -143,7 +141,7 @@ export function Suppliers({ lang: _lang }: { lang: Language }): JSX.Element {
                   </div>
                   <div>
                     <strong>{supplier.name}</strong>
-                    <small>{supplier.email || 'Email non renseigné'}</small>
+                    <small>{supplier.email || tr(lang, 'Email non renseigné', 'Email not entered', 'البريد غير مسجل')}</small>
                   </div>
                   <button
                     className="icon-button"
@@ -161,15 +159,15 @@ export function Suppliers({ lang: _lang }: { lang: Language }): JSX.Element {
                 <div className="client-details">
                   <div>
                     <Phone size={15} />
-                    <span>{supplier.phone || 'Téléphone non renseigné'}</span>
+                    <span>{supplier.phone || tr(lang, 'Téléphone non renseigné', 'Phone not entered', 'الهاتف غير مسجل')}</span>
                   </div>
                   <div>
                     <Mail size={15} />
-                    <span>{supplier.email || 'Email non renseigné'}</span>
+                    <span>{supplier.email || tr(lang, 'Email non renseigné', 'Email not entered', 'البريد غير مسجل')}</span>
                   </div>
                   <div>
                     <MapPin size={15} />
-                    <span>{supplier.address || 'Adresse non renseignée'}</span>
+                    <span>{supplier.address || tr(lang, 'Adresse non renseignée', 'Address not entered', 'العنوان غير مسجل')}</span>
                   </div>
                 </div>
 
@@ -185,6 +183,7 @@ export function Suppliers({ lang: _lang }: { lang: Language }): JSX.Element {
       {showForm && (
         <SupplierModal
           supplier={editing}
+          lang={lang}
           onClose={() => setShowForm(false)}
           onSaved={async () => {
             setShowForm(false)
@@ -198,10 +197,12 @@ export function Suppliers({ lang: _lang }: { lang: Language }): JSX.Element {
 
 function SupplierModal({
   supplier,
+  lang,
   onClose,
   onSaved
 }: {
   supplier: Supplier | null
+  lang: Language
   onClose: () => void
   onSaved: () => Promise<void>
 }): JSX.Element {
@@ -227,7 +228,7 @@ function SupplierModal({
 
   async function save(): Promise<void> {
     if (!form.name.trim()) {
-      setError('Le nom du fournisseur est obligatoire.')
+      setError(tr(lang, 'Le nom du fournisseur est obligatoire.', 'Supplier name is required.', 'اسم المزود إجباري.'))
       return
     }
 
@@ -251,7 +252,7 @@ function SupplierModal({
       setError(
         cause instanceof Error
           ? cause.message
-          : 'Impossible d’enregistrer le fournisseur.'
+          : tr(lang, 'Impossible d’enregistrer le fournisseur.', 'Unable to save supplier.', 'تعذر حفظ المزود.')
       )
     } finally {
       setSaving(false)
@@ -270,10 +271,10 @@ function SupplierModal({
         <div className="modal-heading">
           <div>
             <span className="eyebrow">
-              {supplier ? 'Modification' : 'Nouveau fournisseur'}
+              {supplier ? tr(lang, 'Modification', 'Edit', 'تعديل') : tr(lang, 'Nouveau fournisseur', 'New supplier', 'مزود جديد')}
             </span>
-            <h2>{supplier ? supplier.name : 'Ajouter un fournisseur'}</h2>
-            <p>Ces informations servent au suivi d’approvisionnement.</p>
+            <h2>{supplier ? supplier.name : tr(lang, 'Ajouter un fournisseur', 'Add a supplier', 'إضافة مزود')}</h2>
+            <p>{tr(lang, 'Ces informations servent au suivi d’approvisionnement.', 'These details help track supplies.', 'تساعد هذه البيانات في متابعة التزويد.')}</p>
           </div>
           <button className="icon-button" type="button" onClick={onClose}>
             <X size={18} />
@@ -284,17 +285,17 @@ function SupplierModal({
 
         <div className="form-grid">
           <label className="field full">
-            <span>Nom / société *</span>
+            <span>{tr(lang, 'Nom / société *', 'Name / company *', 'الاسم / الشركة *')}</span>
             <input
               autoFocus
               value={form.name}
               onChange={(event) => patch('name', event.target.value)}
-              placeholder="Ex. Fournisseur pièces Renault"
+              placeholder={tr(lang, 'Ex. Fournisseur pièces Renault', 'E.g. Renault parts supplier', 'مثال: مزود قطع رينو')}
             />
           </label>
 
           <label className="field">
-            <span>Téléphone</span>
+            <span>{tr(lang, 'Téléphone', 'Phone', 'الهاتف')}</span>
             <input
               value={form.phone}
               onChange={(event) => patch('phone', event.target.value)}
@@ -311,7 +312,7 @@ function SupplierModal({
           </label>
 
           <label className="field full">
-            <span>Adresse</span>
+            <span>{tr(lang, 'Adresse', 'Address', 'العنوان')}</span>
             <input
               value={form.address}
               onChange={(event) => patch('address', event.target.value)}
@@ -319,12 +320,12 @@ function SupplierModal({
           </label>
 
           <label className="field full">
-            <span>Notes</span>
+            <span>{tr(lang, 'Notes', 'Notes', 'ملاحظات')}</span>
             <textarea
               rows={4}
               value={form.notes}
               onChange={(event) => patch('notes', event.target.value)}
-              placeholder="Délais, conditions, références de contact…"
+              placeholder={tr(lang, 'Délais, conditions, références de contact…', 'Lead times, terms, contact details…', 'الآجال والشروط وبيانات الاتصال…')}
             />
           </label>
         </div>
@@ -336,7 +337,7 @@ function SupplierModal({
             onClick={onClose}
             disabled={saving}
           >
-            Annuler
+            {tr(lang, 'Annuler', 'Cancel', 'إلغاء')}
           </button>
           <button
             className="primary-button"
@@ -345,10 +346,10 @@ function SupplierModal({
             disabled={saving}
           >
             {saving
-              ? 'Enregistrement…'
+              ? tr(lang, 'Enregistrement…', 'Saving…', 'جار الحفظ…')
               : supplier
-                ? 'Enregistrer les modifications'
-                : 'Créer le fournisseur'}
+                ? tr(lang, 'Enregistrer les modifications', 'Save changes', 'حفظ التعديلات')
+                : tr(lang, 'Créer le fournisseur', 'Create supplier', 'إنشاء المزود')}
           </button>
         </div>
       </div>

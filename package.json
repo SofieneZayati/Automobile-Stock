@@ -1,6 +1,6 @@
 {
   "name": "automobile-stock",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Offline stock and invoicing desktop app for Etablissement Ben Mahmoud",
   "main": "out/main/index.js",
@@ -14,8 +14,13 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
+    "test:integration": "npm run build && node scripts/run-integration-test.mjs",
+    "test:ui": "npm run build && node scripts/run-ui-smoke-test.mjs",
+    "verify": "npm run typecheck && npm run test:integration && npm run test:ui",
+    "seed:starter": "node scripts/seed-starter-data.mjs",
     "dist": "npm run build && electron-builder",
     "dist:portable": "npm run build && electron-builder --win portable",
+    "dist:client": "npm run seed:starter && npm run build && electron-builder --win dir && node scripts/prepare-delivery.mjs",
     "electron:install": "install-electron --no",
     "postinstall": "npm run electron:install"
   },
@@ -43,6 +48,12 @@
     },
     "files": [
       "out/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/initial-database.sqlite3",
+        "to": "initial-database.sqlite3"
+      }
     ],
     "win": {
       "target": [
